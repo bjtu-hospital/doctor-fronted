@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>医生端 | 个人信息原型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f6f7fb;
+      padding: 30px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .layout {
+      display: flex;
+      gap: 32px;
+      max-width: 1400px;
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .phone { width: 420px; }
+    .screen {
+      background: #fff;
+      border-radius: 34px;
+      padding: 36px 28px 44px;
+      box-shadow: 0 35px 90px rgba(11, 26, 60, 0.18);
+      min-height: 720px;
+    }
+    .profile-card {
+      text-align: center;
+      padding-bottom: 24px;
+      border-bottom: 1px dashed #e1e7f5;
+      margin-bottom: 24px;
+    }
+    .avatar {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 14px;
+      border-radius: 36px;
+      background: linear-gradient(135deg, #87cefa, #6bb6ff);
+      color: #fff;
+      font-size: 40px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 20px 40px rgba(135, 206, 250, .5);
+    }
+    .profile-card h1 { font-size: 24px; color: #1d2b53; letter-spacing: 1px; }
+    .profile-card p { color: #8a96ad; font-size: 14px; margin-top: 6px; }
+    .badge {
+      margin-top: 12px;
+      display: inline-flex;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: #f0f6ff;
+      color: #5b8af5;
+      font-size: 12px;
+    }
+    .info-group {
+      border-radius: 24px;
+      background: #f8faff;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: inset 0 0 0 1px #e3e8f4;
+    }
+    .info-group h2 {
+      font-size: 16px;
+      color: #1d2b53;
+      margin-bottom: 12px;
+    }
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      color: #5c6475;
+      padding: 10px 0;
+      border-bottom: 1px solid #e6ecf7;
+    }
+    .info-item:last-child { border-bottom: none; }
+    .info-item span { color: #1d2b53; font-weight: 600; }
+    .toggle {
+      width: 44px;
+      height: 24px;
+      border-radius: 999px;
+      background: #d8deea;
+      position: relative;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      top: 2px;
+      left: 2px;
+      transition: transform .2s;
+      box-shadow: 0 4px 8px rgba(0,0,0,.1);
+    }
+    .toggle.on { background: #6bb6ff; }
+    .toggle.on::after { transform: translateX(20px); }
+    .actions {
+      margin-top: 30px;
+      display: flex;
+      gap: 14px;
+    }
+    .actions button {
+      flex: 1;
+      border: none;
+      border-radius: 20px;
+      padding: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 14px 25px rgba(0,0,0,.08);
+    }
+    .actions button.primary {
+      background: linear-gradient(135deg, #87cefa, #6bb6ff);
+      color: #fff;
+    }
+    .actions button.secondary {
+      background: #f8faff;
+      color: #1d2b53;
+    }
+    .tabbar {
+      margin-top: 26px;
+      background: #f8faff;
+      border-radius: 28px;
+      padding: 12px 14px;
+      display: flex;
+      gap: 12px;
+      box-shadow: inset 0 0 0 1px #e0e7f5;
+    }
+    .tabbar-item {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 8px 0;
+      border-radius: 18px;
+      font-size: 12px;
+      color: #8a96ad;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+    }
+    .tabbar-item .icon { font-size: 18px; }
+    .tabbar-item.active {
+      background: #fff;
+      color: #1d2b53;
+      font-weight: 600;
+      box-shadow: 0 10px 20px rgba(15, 27, 48, 0.1);
+    }
+    .spec { flex:1; min-width:380px; background:#fff; border-radius:24px; padding:32px; box-shadow:0 25px 70px rgba(15,27,48,.12); }
+    .spec h2 { font-size:26px; color:#1d2b53; margin-bottom:18px; }
+    .spec section + section { margin-top:20px; }
+    .spec h3 { font-size:18px; color:#324266; margin-bottom:8px; }
+    .spec p, .spec li { font-size:14px; color:#5b6275; line-height:1.8; }
+    .spec p { background:#f8faff; border-left:4px solid #87cefa; padding:12px 16px; border-radius:12px; }
+    .spec ul { padding-left:18px; }
+    .spec li { margin-bottom:6px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="phone">
+      <div class="screen">
+        <div class="profile-card">
+          <div class="avatar">LY</div>
+          <h1>梁伊 • 主任医师</h1>
+          <p>心血管内科 · 从业 18 年</p>
+          <div class="badge">认证医生档案</div>
+        </div>
+
+        <div class="info-group">
+          <h2>基础信息</h2>
+          <div class="info-item"><span>工号</span> 2311068</div>
+          <div class="info-item"><span>所属科室</span> 心内科二病区</div>
+          <div class="info-item"><span>执业证书</span> 2025-04-15 到期</div>
+        </div>
+
+        <div class="info-group">
+          <h2>联系方式</h2>
+          <div class="info-item"><span>工作手机</span> 138-****-2680</div>
+          <div class="info-item"><span>院内短号</span> 862680</div>
+          <div class="info-item"><span>邮箱</span> liangyi@hospital.cn</div>
+        </div>
+
+        <div class="info-group">
+          <h2>提醒设置</h2>
+          <div class="info-item">
+            <span>门诊推送</span>
+            <div class="toggle on" data-target="clinic"></div>
+          </div>
+          <div class="info-item">
+            <span>排班变更</span>
+            <div class="toggle on" data-target="schedule"></div>
+          </div>
+          <div class="info-item">
+            <span>患者消息</span>
+            <div class="toggle" data-target="patient"></div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="secondary" onclick="alert('已提交变更申请')">信息变更</button>
+          <button class="primary" onclick="alert('安全设置已更新')">安全设置</button>
+        </div>
+
+        <nav class="tabbar">
+          <button class="tabbar-item">
+            <span class="icon">📅</span>
+            排班
+          </button>
+          <button class="tabbar-item">
+            <span class="icon">📝</span>
+            接诊
+          </button>
+          <button class="tabbar-item active">
+            <span class="icon">👤</span>
+            我的
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <div class="spec">
+      <h2>设计说明文档</h2>
+      <section>
+        <h3>布局概述</h3>
+        <p>个人信息页采用“头像卡 + 信息分组 + 设置切换 + CTA 按钮”的纵向结构，在单屏范围内展示医生身份与常用配置。背景延续白+淡蓝的医疗风格。</p>
+      </section>
+      <section>
+        <h3>组件策略</h3>
+        <ul>
+          <li>头像卡片：大尺寸圆角矩形，突出医生身份。</li>
+          <li>信息分组：以卡片分区展示基础、联系方式等数据，保持易读性。</li>
+          <li>提醒设置：自定义 Toggle 组件，支持开关状态视觉反馈。</li>
+          <li>操作按钮：主次按钮并排，提供信息变更与安全设置两个路径。</li>
+        </ul>
+      </section>
+      <section>
+        <h3>交互说明</h3>
+        <p>Toggle 点击切换 on/off 状态并模拟保存；按钮触发弹窗表示入口功能；整体保持 20px 以上的触控面积，确保移动端可操作性。</p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.toggle').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('on');
+        const state = toggle.classList.contains('on') ? '开启' : '关闭';
+        alert(`${toggle.dataset.target}提醒已${state}`);
+      });
+    });
+  </script>
+</body>
+</html>
+

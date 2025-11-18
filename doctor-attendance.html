@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>医生端 | 签到签退原型</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f6fb;
+      padding: 30px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .layout {
+      display: flex;
+      gap: 32px;
+      max-width: 1400px;
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .phone {
+      width: 420px;
+    }
+    .screen {
+      background: #fff;
+      border-radius: 34px;
+      padding: 36px 28px 44px;
+      box-shadow: 0 28px 70px rgba(17, 39, 86, 0.18);
+      min-height: 720px;
+    }
+    .status-card {
+      background: linear-gradient(145deg, #87cefa, #6bb6ff);
+      border-radius: 28px;
+      padding: 28px;
+      color: #fff;
+      box-shadow: 0 20px 50px rgba(107, 182, 255, 0.6);
+      position: relative;
+      overflow: hidden;
+    }
+    .status-card h1 { font-size: 42px; letter-spacing: 2px; }
+    .status-card span { font-size: 14px; opacity: 0.9; }
+    .status-badge {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      background: rgba(255,255,255,0.2);
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    .action-area {
+      margin-top: 26px;
+      background: #f8faff;
+      border-radius: 24px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      box-shadow: inset 0 0 0 1px #edf0f7;
+    }
+    .geo {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #5b6375;
+    }
+    .geo span { color: #1d2b53; font-weight: 600; }
+    .btn {
+      width: 100%;
+      border: none;
+      border-radius: 22px;
+      padding: 18px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(120deg, #6bb6ff, #87cefa);
+      box-shadow: 0 16px 30px rgba(135, 206, 250, 0.45);
+      transition: transform .2s;
+    }
+    .btn:active { transform: translateY(2px); }
+    .history {
+      margin-top: 30px;
+    }
+    .history h2 {
+      font-size: 18px;
+      color: #1d2b53;
+      margin-bottom: 12px;
+    }
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .timeline-item {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .timeline-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #87cefa;
+      box-shadow: 0 0 0 4px rgba(135, 206, 250, 0.2);
+    }
+    .timeline-content {
+      background: #f8faff;
+      border-radius: 18px;
+      padding: 10px 16px;
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #5c6475;
+    }
+    .timeline-content strong { color: #1d2b53; }
+    .spec {
+      flex: 1;
+      min-width: 380px;
+      background: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 70px rgba(15, 27, 48, 0.12);
+    }
+    .spec h2 { font-size: 26px; color: #1d2b53; margin-bottom: 18px; }
+    .spec section + section { margin-top: 20px; }
+    .spec h3 { font-size: 18px; color: #2d3b5c; margin-bottom: 8px; }
+    .spec p, .spec li {
+      font-size: 14px;
+      color: #5b6275;
+      line-height: 1.8;
+    }
+    .spec p {
+      background: #f8faff;
+      border-left: 4px solid #87cefa;
+      padding: 12px 16px;
+      border-radius: 12px;
+    }
+    .spec ul { padding-left: 18px; }
+    .spec li { margin-bottom: 6px; }
+
+    .tabbar {
+      margin-top: 26px;
+      background: #f8faff;
+      border-radius: 28px;
+      padding: 12px 14px;
+      display: flex;
+      gap: 12px;
+      box-shadow: inset 0 0 0 1px #e0e7f5;
+    }
+    .tabbar-item {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 8px 0;
+      border-radius: 18px;
+      font-size: 12px;
+      color: #8a96ad;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+    }
+    .tabbar-item .icon { font-size: 18px; }
+    .tabbar-item.active {
+      background: #fff;
+      color: #1d2b53;
+      font-weight: 600;
+      box-shadow: 0 10px 20px rgba(15, 27, 48, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="phone">
+      <div class="screen">
+        <div class="status-card" id="statusCard">
+          <span class="status-badge" id="statusBadge">等待签到</span>
+          <span>今日排班：门诊 08:00 - 16:30</span>
+          <h1 id="timeLabel">08:05</h1>
+          <span id="dateLabel">2025/04/18 周五</span>
+        </div>
+
+        <div class="action-area">
+          <div class="geo">
+            <p>定位：<span id="locationLabel">门诊楼 • 一号诊区</span></p>
+            <button id="refreshGeo" style="border:none;background:none;color:#6bb6ff;font-size:12px;">重新定位</button>
+          </div>
+          <div style="display:flex;gap:12px;">
+            <div style="flex:1;background:#fff;border-radius:18px;padding:14px;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.05);">
+              <div style="font-size:12px;color:#8a96ad;">签到时间</div>
+              <div id="checkInTime" style="font-size:18px;color:#1d2b53;margin-top:4px;">-- : --</div>
+            </div>
+            <div style="flex:1;background:#fff;border-radius:18px;padding:14px;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.05);">
+              <div style="font-size:12px;color:#8a96ad;">签退时间</div>
+              <div id="checkOutTime" style="font-size:18px;color:#1d2b53;margin-top:4px;">-- : --</div>
+            </div>
+          </div>
+          <button class="btn" id="actionBtn">立即签到</button>
+          <small style="text-align:center;color:#93a0b8;">系统将记录定位与时间，用于人事考勤</small>
+        </div>
+
+        <div class="history">
+          <h2>今日记录</h2>
+          <div class="timeline" id="timeline"></div>
+        </div>
+
+        <nav class="tabbar">
+          <button class="tabbar-item">
+            <span class="icon">📅</span>
+            排班
+          </button>
+          <button class="tabbar-item active">
+            <span class="icon">🕘</span>
+            考勤
+          </button>
+          <button class="tabbar-item">
+            <span class="icon">👤</span>
+            我的
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <div class="spec">
+      <h2>设计说明文档</h2>
+      <section>
+        <h3>界面布局</h3>
+        <p>采用顶部状态卡 + 操作区 + 今日记录的三段式结构，保持单屏完成签到流程。蓝色渐变卡片凸显当前状态，底部柔和阴影保证医疗场景的轻量感。</p>
+      </section>
+      <section>
+        <h3>关键组件</h3>
+        <ul>
+          <li>状态卡片：展示当前时间、排班、状态 Badge。</li>
+          <li>地理位置盒：即时显示定位信息并提供“重新定位”交互。</li>
+          <li>签到/签退按钮：渐变填充与大半径，提高可触性。</li>
+          <li>时间卡片：记录当天的签到与签退时间。</li>
+          <li>时间轴：以点线展示历史记录，方便回溯。</li>
+        </ul>
+      </section>
+      <section>
+        <h3>交互与反馈</h3>
+        <p>按钮点击后状态卡与时间卡实时更新；时间轴插入新的节点，帮助医生确认操作已完成。定位按钮模拟刷新位置，增强真实性。</p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const actionBtn = document.getElementById('actionBtn');
+    const statusBadge = document.getElementById('statusBadge');
+    const checkInTime = document.getElementById('checkInTime');
+    const checkOutTime = document.getElementById('checkOutTime');
+    const timeline = document.getElementById('timeline');
+    let checkedIn = false;
+
+    function addTimelineItem(type, time) {
+      const item = document.createElement('div');
+      item.className = 'timeline-item';
+      item.innerHTML = `
+        <div class="timeline-dot"></div>
+        <div class="timeline-content">
+          <strong>${type}</strong>
+          <span>${time}</span>
+        </div>
+      `;
+      timeline.prepend(item);
+    }
+
+    actionBtn.addEventListener('click', () => {
+      const now = new Date();
+      const time = now.toTimeString().slice(0,5);
+      if (!checkedIn) {
+        checkInTime.textContent = time;
+        statusBadge.textContent = '已签到';
+        actionBtn.textContent = '申请签退';
+        addTimelineItem('签到成功', time);
+        checkedIn = true;
+      } else {
+        checkOutTime.textContent = time;
+        statusBadge.textContent = '已签退';
+        actionBtn.textContent = '完成';
+        actionBtn.disabled = true;
+        actionBtn.style.opacity = .6;
+        addTimelineItem('签退成功', time);
+      }
+    });
+
+    document.getElementById('refreshGeo').addEventListener('click', () => {
+      document.getElementById('locationLabel').textContent = '住院部 • 东区十层';
+      alert('定位刷新成功');
+    });
+  </script>
+</body>
+</html>
+
