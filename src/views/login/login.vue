@@ -1,5 +1,5 @@
 <template>
-  <scroll-view class="login-page" scroll-y>
+  <view class="login-page">
     <view class="login-wrapper">
       <view class="mobile-frame">
         <view class="login-card">
@@ -64,10 +64,12 @@
         </view>
       </view>
     </view>
-  </scroll-view>
+  </view>
 </template>
 
 <script>
+import { login } from '@/api/auth'
+
 export default {
   data() {
     return {
@@ -99,14 +101,63 @@ export default {
         return
       }
       this.loading = true
-      // 模拟请求
-      setTimeout(() => {
-        this.loading = false
-        uni.showToast({
-          title: '登录成功',
-          icon: 'success',
+      
+      // 调用 API 进行登录
+      login({
+        username: this.form.username,
+        password: this.form.password,
+      })
+        .then((res) => {
+          this.loading = false
+          console.log('登录成功响应:', res)
+          
+          uni.showToast({
+            title: '登录成功',
+            icon: 'success',
+            duration: 1500,
+          })
+          
+          // 保存用户信息到本地存储
+          if (res.data) {
+            uni.setStorageSync('doctorInfo', res.data.doctor)
+            uni.setStorageSync('token', res.data.token)
+          }
+          
+          // 登录成功后 1.5 秒跳转到工作台首页
+          setTimeout(() => {
+            console.log('准备跳转到工作台...')
+            
+            // 在 H5 模式下，路由格式为: /#/pages/路径
+            // 在小程序模式下，路由格式为: /pages/路径
+            const platform = uni.getSystemInfoSync().platform
+            console.log('当前平台:', platform)
+            
+            // 使用 pages.json 中定义的页面路径，并保证以 '/' 开头
+            const target = '/views/workbench/index'
+            console.log('使用最终跳转目标:', target)
+            uni.reLaunch({
+              url: target,
+              success: () => {
+                console.log('✅ 跳转到工作台成功')
+              },
+              fail: (err) => {
+                console.error('❌ 跳转失败:', err)
+                uni.showToast({
+                  title: '页面跳转失败',
+                  icon: 'none',
+                })
+              }
+            })
+          }, 1500)
         })
-      }, 1200)
+        .catch((err) => {
+          this.loading = false
+          console.error('登录失败:', err)
+          uni.showToast({
+            title: err.message || '登录失败，请重试',
+            icon: 'none',
+          })
+        })
     },
   },
 }
@@ -116,12 +167,15 @@ export default {
 .login-page {
   min-height: 100vh;
   background: #f2f4f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .login-wrapper {
   width: 100%;
   min-height: 100vh;
-  padding: 80rpx 30rpx 120rpx;
+  padding: 0 30rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -344,8 +398,8 @@ export default {
 
 @media screen and (max-width: 480px) {
   .login-wrapper {
-    align-items: flex-start;
-    padding-top: 60rpx;
+    align-items: center;
+    padding-top: 0;
   }
 
   .mobile-frame {
@@ -354,4 +408,3 @@ export default {
   }
 }
 </style>
-
