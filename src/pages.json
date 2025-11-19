@@ -13,7 +13,7 @@
 			}
 		},
 		{
-			"path": "pages/workbench/index",
+			"path": "pages/workbench/workbench",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "工作台",
@@ -51,10 +51,10 @@
 		"backgroundColor": "#ffffff",
 		"borderStyle": "black",
 		"list": [
-			{
-				"pagePath": "pages/workbench/index",
-				"text": "工作台"
-			},
+		{
+			"pagePath": "pages/workbench/workbench",
+			"text": "工作台"
+		},
 			{
 				"pagePath": "pages/consultation/consultation",
 				"text": "接诊"
