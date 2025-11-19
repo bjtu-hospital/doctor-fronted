@@ -1,5 +1,9 @@
 import request from '@/utils/request'
-import { mockQueueData, mockPatientDetailData, mockOperationResult } from '../pages/consultation/consultation-mock'
+import {
+    mockGetInitialData,
+    mockGetPatientDetail,
+    mockSearchPatients,
+} from '../pages/consultation/consultation-mock'
 
 // Mock 开关
 const USE_MOCK = true
@@ -10,7 +14,7 @@ const USE_MOCK = true
  */
 export function getConsultationQueue() {
     if (USE_MOCK) {
-        return Promise.resolve(mockQueueData)
+        return mockGetInitialData()
     }
     return request.get('/consultation/queue')
 }
@@ -21,9 +25,20 @@ export function getConsultationQueue() {
  */
 export function getPatientDetail(patientId) {
     if (USE_MOCK) {
-        return Promise.resolve(mockPatientDetailData)
+        return mockGetPatientDetail(patientId)
     }
     return request.get(`/consultation/patient/${patientId}`)
+}
+
+/**
+ * 搜索患者
+ * @param {object} params - { name, phone, patient_id }
+ */
+export function searchPatients(params) {
+    if (USE_MOCK) {
+        return Promise.resolve(mockSearchPatients(params))
+    }
+    return request.get('/patients', { params })
 }
 
 /**
@@ -31,9 +46,7 @@ export function getPatientDetail(patientId) {
  * @param {string} currentPatientId - 当前患者ID
  */
 export function callNextPatient(currentPatientId) {
-    if (USE_MOCK) {
-        return Promise.resolve(mockOperationResult)
-    }
+    // 注意：mock数据时，此操作在前端完成，真实API调用后端
     return request.post('/consultation/next', { currentPatientId })
 }
 
@@ -42,19 +55,15 @@ export function callNextPatient(currentPatientId) {
  * @param {string} patientId - 患者ID
  */
 export function passPatient(patientId) {
-    if (USE_MOCK) {
-        return Promise.resolve(mockOperationResult)
-    }
+    // 注意：mock数据时，此操作在前端完成，真实API调用后端
     return request.post('/consultation/pass', { patientId })
 }
 
 /**
  * 申请加号
- * @param {object} data - 加号信息
+ * @param {object} data - { name, age, gender, position, reason }
  */
 export function applyAddPatient(data) {
-    if (USE_MOCK) {
-        return Promise.resolve(mockOperationResult)
-    }
-    return request.post('/consultation/add', data)
+    // 注意：mock数据时，此操作在前端完成，真实API调用后端
+    return request.post('/consultation/apply-add', data)
 }
