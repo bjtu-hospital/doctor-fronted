@@ -5,7 +5,8 @@ const useMock = true
 
 /**
  * 获取工作台数据
- * @returns {code: 0, message: {doctor, shiftStatus, todayData, reminders, recentRecords}}
+ * @param {string} scenario - Mock场景: 'notCheckin' | 'checkedIn' | 'checkoutPending'
+ * @returns {code: 0, message: {doctor: object, shiftStatus: object, todayData: object, reminders: array, recentRecords: array}}
  */
 export function getDashboardData(scenario = 'notCheckin') {
   if (useMock) return workbenchAPI.getDashboard(scenario)
@@ -14,7 +15,10 @@ export function getDashboardData(scenario = 'notCheckin') {
 
 /**
  * 签到
- * @returns {code: 0, message: {checkinTime, status, message, workDuration}}
+ * @param {number} shiftId - 班次ID
+ * @param {number} latitude - 纬度
+ * @param {number} longitude - 经度
+ * @returns {code: 0, message: {checkinTime: string, status: string, message: string, workDuration: string}}
  */
 export function checkin(shiftId, latitude, longitude) {
   if (useMock) return workbenchAPI.checkin({ latitude, longitude, shiftId })
@@ -23,7 +27,10 @@ export function checkin(shiftId, latitude, longitude) {
 
 /**
  * 签退
- * @returns {code: 0, message: {checkoutTime, workDuration, status, message}}
+ * @param {number} shiftId - 班次ID
+ * @param {number} latitude - 纬度
+ * @param {number} longitude - 经度
+ * @returns {code: 0, message: {checkoutTime: string, workDuration: string, status: string, message: string}}
  */
 export function checkout(shiftId, latitude, longitude) {
   if (useMock) return workbenchAPI.checkout({ latitude, longitude, shiftId })
@@ -32,7 +39,9 @@ export function checkout(shiftId, latitude, longitude) {
 
 /**
  * 获取班次
- * @returns {code: 0, message: {shifts: array}}
+ * @param {number} doctorId - 医生ID
+ * @param {string} date - 日期 YYYY-MM-DD
+ * @returns {code: 0, message: {shifts: [{id, name, startTime, endTime, location, status}]}}
  */
 export function getShifts(doctorId, date) {
   if (useMock) return workbenchAPI.getShifts({ doctorId, date })
@@ -41,7 +50,8 @@ export function getShifts(doctorId, date) {
 
 /**
  * 获取接诊统计
- * @returns {code: 0, message: {pending, ongoing, completed, total}}
+ * @param {number} doctorId - 医生ID
+ * @returns {code: 0, message: {pending: number, ongoing: number, completed: number, total: number}}
  */
 export function getConsultationStats(doctorId) {
   if (useMock) return workbenchAPI.getConsultationStats({ doctorId })
@@ -50,7 +60,8 @@ export function getConsultationStats(doctorId) {
 
 /**
  * 获取待办提醒
- * @returns {code: 0, message: {reminders: array}}
+ * @param {number} doctorId - 医生ID
+ * @returns {code: 0, message: {reminders: [{id, type, title, icon, time}]}}
  */
 export function getReminders(doctorId) {
   if (useMock) return workbenchAPI.getReminders({ doctorId })
@@ -59,7 +70,9 @@ export function getReminders(doctorId) {
 
 /**
  * 获取最近接诊记录
- * @returns {code: 0, message: {records: array}}
+ * @param {number} doctorId - 医生ID
+ * @param {number} limit - 数量限制，默认3
+ * @returns {code: 0, message: {records: [{id, patientName, consultationTime, diagnosis}]}}
  */
 export function getRecentConsultations(doctorId, limit = 3) {
   if (useMock) return workbenchAPI.getRecentConsultations({ doctorId, limit })

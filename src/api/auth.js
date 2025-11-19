@@ -6,7 +6,9 @@ const useMock = true
 
 /**
  * 登录
- * @returns {code: 0, message: {token: string, doctor: object}}
+ * @param {string} username - 用户名/工号
+ * @param {string} password - 密码
+ * @returns {code: 0, message: {token: string, doctor: {id, name, department, hospital}}}
  */
 export function login({ username, password }) {
   if (useMock) return authMock.login({ username, password })
@@ -33,7 +35,7 @@ export function refreshToken() {
 
 /**
  * 获取用户信息
- * @returns {code: 0, message: {doctor: object}}
+ * @returns {code: 0, message: {doctor: {id, name, department, hospital, title, photo_path}}}
  */
 export function getUserInfo() {
   if (useMock) return authMock.getUserInfo()
