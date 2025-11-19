@@ -328,14 +328,3 @@
 - `checkout_pending`: 待签退
 - `checked_out`: 已签退
 
----
-
-## 文件路径
-- API 调用文件: `/src/api/workbench.js`
-- Mock 数据文件: `/src/api/workbench-mock.js`
-- 页面文件: `/src/views/workbench/index.vue`
-- 子组件目录: `/src/views/workbench/components/`
-
----
-
-**最后更新**: 2025-11-19

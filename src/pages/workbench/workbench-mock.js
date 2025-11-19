@@ -187,6 +187,60 @@ const mockData = {
         }
       ]
     }
+  },
+
+  // 场景 4: 已签退
+  checkedOutScenario: {
+    code: 0,
+    message: {
+      doctor: {
+        id: 1,
+        name: '陈明哲',
+        title: '教授、主任医师',
+        department: '心内科',
+        photo_path: '/static/images/doctor/doctor_1.jpg'
+      },
+      shiftStatus: {
+        status: 'checked_out', // 已签退
+        currentShift: {
+          id: 1,
+          name: '上午门诊',
+          startTime: '08:30',
+          endTime: '12:00',
+          location: '门诊 3 诊室'
+        },
+        checkinTime: '08:28',
+        checkoutTime: '12:15',
+        workDuration: '3小时 47 分钟'
+      },
+      todayData: {
+        pendingConsultation: 0,
+        ongoingConsultation: 0,
+        completedConsultation: 18,
+        totalConsultation: 18
+      },
+      reminders: [],
+      recentRecords: [
+        {
+          id: 1,
+          patientName: '李明',
+          consultationTime: '09:30',
+          diagnosis: '高血压，需控制饮食'
+        },
+        {
+          id: 2,
+          patientName: '王芳',
+          consultationTime: '09:50',
+          diagnosis: '心律不齐，建议复查'
+        },
+        {
+          id: 3,
+          patientName: '张三',
+          consultationTime: '10:15',
+          diagnosis: '心力衰竭，需加强监测'
+        }
+      ]
+    }
   }
 }
 
@@ -203,7 +257,8 @@ export const workbenchAPI = {
         const scenarioMap = {
           notCheckin: mockData.notCheckinScenario,
           checkedIn: mockData.checkedInScenario,
-          checkoutPending: mockData.checkoutPendingScenario
+          checkoutPending: mockData.checkoutPendingScenario,
+          checkedOut: mockData.checkedOutScenario
         }
         resolve(scenarioMap[scenario] || mockData.notCheckinScenario)
       }, 300)
