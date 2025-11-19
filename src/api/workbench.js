@@ -1,9 +1,9 @@
 // 工作台 API 调用封装
 // 生产环境调用真实接口，开发环境使用 Mock 数据
 
-import { workbenchAPI } from './workbench-mock'
+import { workbenchAPI } from "../views/workbench/mock/workbench-mock"
 
-// 小程序运行时没有全局 `process`，直接访问会抛 ReferenceError。
+// 小程序运行时没有全局 `process`，直接访问会抛 ReferenceError.
 // 这里只使用安全的 `process` 判断；若不可用（小程序环境），
 // 默认使用 Mock（避免真机调用未配置的接口）。
 const _hasProcess = (typeof process !== 'undefined' && process && process.env)

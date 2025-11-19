@@ -68,20 +68,20 @@ export default {
 
 .shortcuts-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8rpx;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10rpx;
 }
 
 .shortcut-card {
   background: #fff;
-  border-radius: 12rpx;
-  padding: 14rpx 8rpx;
+  border-radius: 14rpx;
+  padding: 18rpx 12rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
-  box-shadow: 0 2rpx 8rpx rgba(15, 27, 48, 0.04);
+  gap: 10rpx;
+  box-shadow: 0 3rpx 10rpx rgba(15, 27, 48, 0.05);
   transition: opacity 0.2s ease;
 
   &:active {
@@ -89,8 +89,8 @@ export default {
   }
 
   .icon-box {
-    width: 40rpx;
-    height: 40rpx;
+    width: 48rpx;
+    height: 48rpx;
     border-radius: 50%;
     background: #f0f5ff;
     display: flex;
@@ -101,9 +101,9 @@ export default {
   }
 
   .shortcut-name {
-    font-size: 16rpx;
+    font-size: 18rpx;
     color: #1d2b53;
-    font-weight: 400;
+    font-weight: 500;
     text-align: center;
     line-height: 1.2;
   }
@@ -212,3 +212,4 @@ export default {
   transform: translateX(-50%);
 }
 </style>
+
