@@ -13,5 +13,5 @@ export default {
 </script>
 
 <style>
-@import 'uview-plus/index.scss';
+/* 每个页面公共css，可以在这里放通用样式 */
 </style>
