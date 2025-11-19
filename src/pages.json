@@ -17,7 +17,7 @@
 			}
 		},
 		{
-			"path": "pages/consultation/index",
+			"path": "pages/consultation/consultation",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "接诊",
@@ -25,7 +25,7 @@
 			}
 		},
 		{
-			"path": "pages/schedule/index",
+			"path": "pages/schedule/schedule",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "排班",
@@ -33,17 +33,11 @@
 			}
 		},
 		{
-			"path": "pages/profile/index",
+			"path": "pages/profile/profile",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "我的",
 				"backgroundColor": "#F8FAFF"
-			}
-		},
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "uni-app"
 			}
 		}
 	],
@@ -58,15 +52,15 @@
 				"text": "工作台"
 			},
 			{
-				"pagePath": "pages/consultation/index",
+				"pagePath": "pages/consultation/consultation",
 				"text": "接诊"
 			},
 			{
-				"pagePath": "pages/schedule/index",
+				"pagePath": "pages/schedule/schedule",
 				"text": "排班"
 			},
 			{
-				"pagePath": "pages/profile/index",
+				"pagePath": "pages/profile/profile",
 				"text": "我的"
 			}
 		]
