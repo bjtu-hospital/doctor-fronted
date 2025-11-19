@@ -8,6 +8,8 @@ export default defineConfig({
   ],
   server: {
     historyApiFallback: true,  // 支持 history 路由
+    port: 3000, // 改成其他端口
+    host: '0.0.0.0'
   },
   resolve: {
     alias: {

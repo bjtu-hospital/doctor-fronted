@@ -47,7 +47,7 @@ export default {
     handleViewAll() {
       // 跳转到接诊页面（Tab2）
       uni.switchTab({
-        url: '/views/consultation/index' // 需要更新路径
+        url: '/pages/consultation/consultation'
       })
     }
   }

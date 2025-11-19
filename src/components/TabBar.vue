@@ -40,25 +40,25 @@ export default {
         {
           icon: '▦',
           label: '工作台',
-          path: '/views/workbench/index',
+          path: '/pages/workbench/index',
           badge: ''
         },
         {
           icon: '⊕',
           label: '接诊',
-          path: '/views/consultation/index',
+          path: '/pages/consultation/consultation',
           badge: ''
         },
         {
           icon: '☷',
           label: '排班',
-          path: '/views/schedule/index',
+          path: '/pages/schedule/schedule',
           badge: ''
         },
         {
           icon: '◎',
           label: '我的',
-          path: '/views/profile/index',
+          path: '/pages/profile/profile',
           badge: ''
         }
       ]
