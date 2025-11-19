@@ -62,23 +62,17 @@ export default {
     return {
       // 医生信息
       doctorInfo: {
-        id: 1,
-        name: '陈明哲',
-        title: '教授、主任医师',
-        department: '心内科',
-        photo_path: '/static/images/doctor/doctor_1.jpg'
+        id: null,
+        name: '',
+        title: '',
+        department: '',
+        photo_path: ''
       },
 
       // 班次信息
       shiftStatus: {
         status: 'not_checkin',
-        currentShift: {
-          id: 1,
-          name: '上午门诊',
-          startTime: '08:30',
-          endTime: '12:00',
-          location: '门诊 3 诊室'
-        },
+        currentShift: null,
         checkinTime: '',
         checkoutTime: '',
         workDuration: '',
@@ -100,12 +94,7 @@ export default {
       recentRecords: [],
 
       // 倒计时
-      countdown: '距离开始还有 15 分钟',
-
-      // 徽章（通知数）
-      badges: {
-        consultation: 3
-      },
+      countdown: '',
 
       // 加载状态
       loading: false,
@@ -213,13 +202,12 @@ export default {
       try {
         const response = await checkin(shiftId, latitude, longitude)
         if (response && response.code === 0) {
+          const data = response.message || response.data
           uni.showToast({
-            title: response.message || '签到成功',
+            title: data?.message || '签到成功',
             icon: 'success'
           })
-          // 更新班次状态为已签到
-          this.shiftStatus.status = 'checked_in'
-          this.shiftStatus.checkinTime = response.checkinTime
+          // 更新场景为已签到
           this.currentScenario = 'checkedIn'
           // 刷新数据
           setTimeout(() => {
@@ -257,13 +245,12 @@ export default {
       try {
         const response = await checkout(shiftId, latitude, longitude)
         if (response && response.code === 0) {
+          const data = response.message || response.data
           uni.showToast({
-            title: response.message || '签退成功',
+            title: data?.message || '签退成功',
             icon: 'success'
           })
-          // 更新班次状态为已签退
-          this.shiftStatus.status = 'checked_out'
-          this.shiftStatus.checkoutTime = response.checkoutTime
+          // 更新场景为待签退
           this.currentScenario = 'checkoutPending'
           // 刷新数据
           setTimeout(() => {
