@@ -2,7 +2,7 @@
   <view class="shift-card-wrapper">
     <!-- 状态1：未签到 -->
     <view
-      v-if="status === 'not_checkin'"
+      v-if="status === 'not_checkin' && shiftInfo"
       class="shift-card not-checkin"
     >
       <view class="shift-content">
@@ -29,7 +29,7 @@
 
     <!-- 状态2：已签到 工作中 -->
     <view
-      v-else-if="status === 'checked_in'"
+      v-else-if="status === 'checked_in' && shiftInfo"
       class="shift-card checked-in"
     >
       <view class="left-border"></view>
@@ -57,7 +57,7 @@
 
     <!-- 状态3：待签退 -->
     <view
-      v-else-if="status === 'checkout_pending'"
+      v-else-if="status === 'checkout_pending' && shiftInfo"
       class="shift-card checkout-pending"
     >
       <view class="shift-content">
