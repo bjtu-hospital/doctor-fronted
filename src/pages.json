@@ -1,7 +1,7 @@
 {
-	"pages": [ 
+	"pages": [
 		{
-			"path": "views/login/login",
+			"path": "pages/login/login",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "医生工作系统",
@@ -9,7 +9,7 @@
 			}
 		},
 		{
-			"path": "views/workbench/index",
+			"path": "pages/workbench/index",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "工作台",
@@ -17,7 +17,7 @@
 			}
 		},
 		{
-			"path": "views/consultation/index",
+			"path": "pages/consultation/consultation",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "接诊",
@@ -25,7 +25,7 @@
 			}
 		},
 		{
-			"path": "views/schedule/index",
+			"path": "pages/schedule/schedule",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "排班",
@@ -33,17 +33,11 @@
 			}
 		},
 		{
-			"path": "views/profile/index",
+			"path": "pages/profile/profile",
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "我的",
 				"backgroundColor": "#F8FAFF"
-			}
-		},
-		{
-			"path": "views/index/index",
-			"style": {
-				"navigationBarTitleText": "uni-app"
 			}
 		}
 	],
@@ -54,19 +48,19 @@
 		"borderStyle": "black",
 		"list": [
 			{
-				"pagePath": "views/workbench/index",
+				"pagePath": "pages/workbench/index",
 				"text": "工作台"
 			},
 			{
-				"pagePath": "views/consultation/index",
+				"pagePath": "pages/consultation/consultation",
 				"text": "接诊"
 			},
 			{
-				"pagePath": "views/schedule/index",
+				"pagePath": "pages/schedule/schedule",
 				"text": "排班"
 			},
 			{
-				"pagePath": "views/profile/index",
+				"pagePath": "pages/profile/profile",
 				"text": "我的"
 			}
 		]

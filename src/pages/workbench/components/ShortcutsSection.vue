@@ -39,14 +39,12 @@ export default {
   methods: {
     handleShortcutClick(type) {
       if (type === 'schedule') {
-        // 跳转到排班页面（Tab3）
         uni.switchTab({
-          url: '/views/schedule/index' // 需要更新路径
+          url: '/pages/schedule/schedule'
         })
       } else if (type === 'consultation') {
-        // 跳转到接诊页面（Tab2）
         uni.switchTab({
-          url: '/views/consultation/index' // 需要更新路径
+          url: '/pages/consultation/consultation'
         })
       } else if (type === 'notes' || type === 'message') {
         // 待开发功能
