@@ -3,13 +3,9 @@
  * 统一的网络请求配置和拦截器
  */
 
-// 检测是否有 process 环境变量
-const _hasProcess = (typeof process !== 'undefined' && process && process.env)
-
-// API 基础路径
-const BASE_URL = _hasProcess
-    ? (process.env.VITE_API_BASE_URL || process.env.VUE_APP_API_BASE_URL || '/api')
-    : '/api'
+// API 基础路径 - 从环境变量读取
+// 在 Vite 项目中使用 import.meta.env
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 // 请求超时时间
 const TIMEOUT = 10000
