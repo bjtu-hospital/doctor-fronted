@@ -23,23 +23,20 @@ export const useAuthStore = defineStore("auth", () => {
             console.log('Login API response:', response) // 调试日志
 
             // API 返回格式适配
-            // 优先适配用户要求的 response.message 为字符串的情况
-            // 同时兼容 Mock 数据中 response.message 为对象的情况
             let accessToken = response.message
 
-            if (typeof accessToken === 'object') {
-                // 适配新的接口返回结构 { access_token: "..." }
+            // 情况1: message 是对象 (如 { access_token: "..." } 或 { token: "..." })
+            if (typeof accessToken === 'object' && accessToken !== null) {
                 if (accessToken.access_token) {
                     accessToken = accessToken.access_token
-                }
-                // 兼容旧的 Mock 数据结构 { token: "..." }
-                else if (accessToken.token) {
+                } else if (accessToken.token) {
                     accessToken = accessToken.token
                 }
             }
+            // 情况2: message 直接是字符串 (如 "eyJ...") -> 此时 accessToken 已经是字符串，无需处理
 
             if (!accessToken || typeof accessToken !== 'string') {
-                console.error('Invalid token received:', accessToken)
+                console.error('Invalid token received:', response.message)
                 throw new Error('未收到有效的访问令牌')
             }
 

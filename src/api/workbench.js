@@ -1,7 +1,7 @@
 import { get, post } from '@/utils/request'
 import { workbenchAPI } from '../pages/workbench/workbench-mock'
 
-const useMock = true
+const useMock = false
 
 /**
  * 获取工作台数据
