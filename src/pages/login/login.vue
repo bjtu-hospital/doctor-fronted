@@ -68,7 +68,7 @@
 </template>
 
 <script>
-import { login } from '@/api/auth'
+import { useAuthStore } from '@/store/auth'
 
 export default {
   data() {
@@ -85,7 +85,7 @@ export default {
     togglePassword() {
       this.passwordVisible = !this.passwordVisible
     },
-    handleSubmit() {
+    async handleSubmit() {
       if (!this.form.username.trim()) {
         uni.showToast({
           title: '请输入医生工号',
@@ -100,64 +100,43 @@ export default {
         })
         return
       }
-      this.loading = true
       
-      // 调用 API 进行登录
-      login({
-        identifier: this.form.username,
-        password: this.form.password,
-      })
-        .then((res) => {
-          this.loading = false
-          console.log('登录成功响应:', res)
-          
+      this.loading = true
+      const authStore = useAuthStore()
+      
+      try {
+        // 使用 Store 进行登录
+        const result = await authStore.login({
+          identifier: this.form.username,
+          password: this.form.password
+        })
+        
+        this.loading = false
+        
+        if (result.success) {
           uni.showToast({
             title: '登录成功',
             icon: 'success',
             duration: 1500,
           })
           
-          // 保存用户信息到本地存储
-          if (res.data) {
-            uni.setStorageSync('doctorInfo', res.data.doctor)
-            uni.setStorageSync('token', res.data.token)
-          }
-          
           // 登录成功后 1.5 秒跳转到工作台首页
           setTimeout(() => {
-            console.log('准备跳转到工作台...')
-            
-            // 在 H5 模式下，路由格式为: /#/pages/路径
-            // 在小程序模式下，路由格式为: /pages/路径
-            const platform = uni.getSystemInfoSync().platform
-            console.log('当前平台:', platform)
-            
-            // 使用 pages.json 中定义的页面路径，并保证以 '/' 开头
-            const target = '/pages/workbench/workbench'
-            console.log('使用最终跳转目标:', target)
             uni.reLaunch({
-              url: target,
-              success: () => {
-                console.log('✅ 跳转到工作台成功')
-              },
-              fail: (err) => {
-                console.error('❌ 跳转失败:', err)
-                uni.showToast({
-                  title: '页面跳转失败',
-                  icon: 'none',
-                })
-              }
+              url: '/pages/workbench/workbench'
             })
           }, 1500)
+        } else {
+          throw new Error(result.error)
+        }
+      } catch (err) {
+        this.loading = false
+        console.error('登录失败:', err)
+        uni.showToast({
+          title: err.message || '登录失败，请重试',
+          icon: 'none',
         })
-        .catch((err) => {
-          this.loading = false
-          console.error('登录失败:', err)
-          uni.showToast({
-            title: err.message || '登录失败，请重试',
-            icon: 'none',
-          })
-        })
+      }
     },
   },
 }

@@ -1,54 +1,65 @@
 /**
- * uni-app 网络请求封装
- * 基于 uni.request
+ * utils/request.js
+ * uni-app 网络请求通用封装
  */
 
 // 1. 基础配置
-// 优先使用环境变量，否则回退到本地后端默认端口 8000
+// 获取环境变量中的 BaseUrl，如果没有则使用本地默认
 const getBaseUrl = () => {
+    // 注意：在 vite.config.js 或 .env 文件中定义 VITE_API_BASE_URL
     const envUrl = import.meta.env.VITE_API_BASE_URL
-    if (envUrl && envUrl !== '/') {
+    // 简单判断 URL 格式，避免 undefined 或空字符串
+    if (envUrl && (envUrl.startsWith('http') || envUrl.startsWith('/'))) {
         return envUrl
     }
+    // 默认回退地址
     return 'http://localhost:8000'
 }
 
 export const BASE_URL = getBaseUrl()
-console.log('当前 API Base URL:', BASE_URL)
+const TIMEOUT = 15000 // 超时时间 15s
 
-const TIMEOUT = 10000
-
-// 2. 辅助函数：处理认证失效
+// 2. 辅助函数：统一处理认证失效
 const handleAuthError = (msg = '认证失效，请重新登录') => {
-    uni.showToast({ title: msg, icon: 'none' })
+    // 避免短时间内重复触发提示
+    const isLocked = uni.getStorageSync('isLoginRedirecting')
+    if (isLocked) return
+
+    uni.setStorageSync('isLoginRedirecting', true)
     uni.removeStorageSync('token')
+
+    uni.showToast({ title: msg, icon: 'none', duration: 2000 })
+
     setTimeout(() => {
+        uni.removeStorageSync('isLoginRedirecting')
         uni.reLaunch({ url: '/pages/login/login' })
     }, 1500)
 }
 
 /**
- * 核心请求函数
- * @param {Object} options 请求配置
- * @returns {Promise}
+ * 3. 核心请求函数
  */
 const request = (options = {}) => {
-    // 组装完整 URL
-    // 如果 options.url 已经是完整路径（http开头），则不拼接 BASE_URL
+    // 3.1 url 拼接
     const url = options.url.startsWith('http')
         ? options.url
         : BASE_URL + options.url
 
-    // 获取 Token
+    // 3.2 动态获取 Token
     const token = uni.getStorageSync('token')
 
-    // 组装 Header
+    // 3.3 组装 Header
     const header = {
         'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        ...options.header
+        ...options.header // 允许外部传入 header 覆盖默认值
     }
 
+    // 只有 Token 存在时才添加 Authorization，避免发送空头
+    if (token) {
+        header['Authorization'] = `Bearer ${token}`
+    }
+
+    // 3.4 返回 Promise
     return new Promise((resolve, reject) => {
         uni.request({
             url: url,
@@ -59,92 +70,110 @@ const request = (options = {}) => {
             success: (res) => {
                 const { statusCode, data } = res
 
-                // 1. HTTP 状态码错误
+                // === HTTP 状态码层 ===
                 if (statusCode === 401) {
                     handleAuthError()
                     return reject(new Error('未授权'))
                 }
 
                 if (statusCode !== 200) {
-                    const msg = data?.message || `请求失败 [${statusCode}]`
+                    const msg = data?.message || `请求错误 [${statusCode}]`
                     uni.showToast({ title: msg, icon: 'none' })
                     return reject(new Error(msg))
                 }
 
-                // 2. 业务状态码错误 (假设后端返回结构为 { code, message, data })
+                // === 业务状态码层 (根据后端结构调整) ===
+                // 假设结构: { code: 0, message: "ok", data: ... }
                 if (data && typeof data.code !== 'undefined') {
                     if (data.code === 0) {
-                        // 成功
+                        // 成功：直接返回完整 data，方便 Store 层取 message 或 data
                         resolve(data)
-                    } else if (data.code === 105) {
-                        // Token 过期等
+                    } else if (data.code === 105 || data.code === 401) {
+                        // 业务层面的 Token 过期
                         handleAuthError(data.message || '登录已过期')
                         reject(new Error(data.message))
                     } else {
                         // 其他业务错误
-                        const msg = data.message || '业务处理失败'
+                        const msg = data.message || '请求失败'
                         uni.showToast({ title: msg, icon: 'none' })
                         reject(new Error(msg))
                     }
                 } else {
-                    // 兼容不规范的返回结构，直接返回 data
+                    // 兼容非标准结构（如第三方 API），直接放行
                     resolve(data)
                 }
             },
             fail: (err) => {
-                console.error('网络请求失败:', err)
-                uni.showToast({ title: '网络连接失败', icon: 'none' })
+                console.error('Request Fail:', err)
+                let errMsg = '网络连接失败'
+                if (err.errMsg && err.errMsg.includes('timeout')) {
+                    errMsg = '请求超时'
+                }
+                uni.showToast({ title: errMsg, icon: 'none' })
                 reject(err)
             }
         })
     })
 }
 
-// 导出常用方法
-export const get = (url, data, options) => request({ ...options, url, data, method: 'GET' })
-export const post = (url, data, options) => request({ ...options, url, data, method: 'POST' })
-export const put = (url, data, options) => request({ ...options, url, data, method: 'PUT' })
-export const del = (url, data, options) => request({ ...options, url, data, method: 'DELETE' })
-
-// 文件上传封装
+/**
+ * 4. 文件上传封装
+ */
 export const upload = (url, filePath, formData = {}) => {
     const uploadUrl = url.startsWith('http') ? url : BASE_URL + url
     const token = uni.getStorageSync('token')
+
+    const header = {}
+    if (token) {
+        header['Authorization'] = `Bearer ${token}`
+    }
 
     return new Promise((resolve, reject) => {
         uni.uploadFile({
             url: uploadUrl,
             filePath: filePath,
-            name: 'file',
+            name: 'file', // 后端接收文件的字段名
             formData: formData,
-            header: {
-                'Authorization': token ? `Bearer ${token}` : ''
-            },
+            header: header,
             success: (res) => {
-                // uni.uploadFile 返回的 data 是字符串，需要解析
+                // uni.uploadFile 返回的 data 是字符串，必须 parse
                 try {
                     const data = JSON.parse(res.data)
+                    // 简单的业务状态判断，可根据需要扩展
                     if (res.statusCode === 200 && data.code === 0) {
                         resolve(data)
+                    } else if (res.statusCode === 401) {
+                        handleAuthError()
+                        reject(new Error('未授权'))
                     } else {
-                        reject(new Error(data.message || '上传失败'))
+                        uni.showToast({ title: data.message || '上传失败', icon: 'none' })
+                        reject(new Error(data.message))
                     }
                 } catch (e) {
-                    reject(e)
+                    reject(new Error('解析响应失败'))
                 }
             },
             fail: (err) => {
+                uni.showToast({ title: '上传失败', icon: 'none' })
                 reject(err)
             }
         })
     })
 }
 
+// 5. 导出快捷方法
+export const get = (url, data, options) => request({ ...options, url, data, method: 'GET' })
+export const post = (url, data, options) => request({ ...options, url, data, method: 'POST' })
+export const put = (url, data, options) => request({ ...options, url, data, method: 'PUT' })
+export const del = (url, data, options) => request({ ...options, url, data, method: 'DELETE' })
+
+// 默认导出
 export default {
     request,
     get,
     post,
     put,
     del,
-    upload
+    upload,
+    BASE_URL
 }
