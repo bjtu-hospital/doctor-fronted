@@ -1,7 +1,8 @@
 import { post } from '@/utils/request'
 import { authMock } from '../pages/login/login-mock'
 
-const useMock = true
+// 从环境变量获取是否使用 Mock
+const useMock = false
 
 
 /**
