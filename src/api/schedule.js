@@ -2,7 +2,7 @@ import { get } from '@/utils/request'
 import { mockGetSchedules, mockGetWeekSchedules } from '../pages/schedule/schedule-mock'
 
 // Mock 开关
-const USE_MOCK = true
+const USE_MOCK = false
 
 /**
  * 获取医生排班信息
@@ -15,7 +15,7 @@ export function getSchedules(doctorId, startDate, endDate) {
   if (USE_MOCK) {
     return mockGetSchedules(startDate, endDate)
   }
-  return get('/schedule/doctors/' + doctorId + '/schedules', {
+  return get('/doctor/schedules', {
     start_date: startDate,
     end_date: endDate
   })
@@ -38,7 +38,7 @@ export function getHistorySchedules(doctorId, page = 1, pageSize = 10) {
       }
     })
   }
-  return get('/schedule/doctors/' + doctorId + '/history', {
+  return get('/doctor/schedules/history', {
     page,
     page_size: pageSize
   })

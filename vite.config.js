@@ -8,8 +8,16 @@ export default defineConfig({
   ],
   server: {
     historyApiFallback: true,  // 支持 history 路由
-    port: 3000, // 改成其他端口
-    host: '0.0.0.0'
+    port: 3000, // 前端开发服务器端口
+    host: 'localhost',
+    strictPort: true, // 端口被占用时不自动改端口
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/,''),
+      }
+    },
   },
   resolve: {
     alias: {
