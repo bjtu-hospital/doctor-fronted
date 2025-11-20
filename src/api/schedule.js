@@ -4,6 +4,13 @@ import { mockGetSchedules, mockGetWeekSchedules } from '../pages/schedule/schedu
 // Mock 开关
 const USE_MOCK = false
 
+// 请求缓存
+const requestCache = new Map()
+// 缓存过期时间（5分钟）
+const CACHE_EXPIRE_TIME = 5 * 60 * 1000
+// 正在进行的请求（防止重复请求）
+const pendingRequests = new Map()
+
 /**
  * 获取医生排班信息
  * @param {string} doctorId - 医生ID
@@ -51,10 +58,47 @@ export function getSchedules(doctorId, weekOffset = 0) {
     return `${year}-${month}-${day}`
   }
 
-  return get('/doctor/schedules', {
-    start_date: formatDate(startOfWeek),
-    end_date: formatDate(endOfWeek)
+  const startDate = formatDate(startOfWeek)
+  const endDate = formatDate(endOfWeek)
+  const cacheKey = `schedules_${doctorId}_${startDate}_${endDate}`
+  
+  // 检查缓存
+  const cached = requestCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_EXPIRE_TIME) {
+    console.log('使用API缓存数据:', cacheKey)
+    return Promise.resolve(cached.data)
+  }
+  
+  // 检查是否有相同的请求正在进行
+  if (pendingRequests.has(cacheKey)) {
+    console.log('等待现有请求完成:', cacheKey)
+    return pendingRequests.get(cacheKey)
+  }
+
+  // 发起新请求
+  console.log('发起新API请求:', cacheKey)
+  const requestPromise = get('/doctor/schedules', {
+    start_date: startDate,
+    end_date: endDate
+  }).then(response => {
+    // 缓存响应数据
+    requestCache.set(cacheKey, {
+      data: response,
+      timestamp: Date.now()
+    })
+    // 移除待处理请求
+    pendingRequests.delete(cacheKey)
+    return response
+  }).catch(error => {
+    // 移除待处理请求
+    pendingRequests.delete(cacheKey)
+    throw error
   })
+  
+  // 记录待处理请求
+  pendingRequests.set(cacheKey, requestPromise)
+  
+  return requestPromise
 }
 
 /**
@@ -68,4 +112,27 @@ export function getWeekSchedules(doctorId, weekOffset = 0) {
     return mockGetWeekSchedules(doctorId, weekOffset)
   }
   return getSchedules(doctorId, weekOffset)
+}
+
+/**
+ * 清除排班缓存
+ * @param {string} doctorId - 可选，指定医生ID则只清除该医生的缓存
+ */
+export function clearScheduleCache(doctorId = null) {
+  if (doctorId) {
+    // 清除指定医生的所有缓存
+    const keysToDelete = []
+    requestCache.forEach((value, key) => {
+      if (key.includes(`_${doctorId}_`)) {
+        keysToDelete.push(key)
+      }
+    })
+    keysToDelete.forEach(key => requestCache.delete(key))
+    console.log(`已清除医生 ${doctorId} 的缓存，共 ${keysToDelete.length} 条`)
+  } else {
+    // 清除所有缓存
+    const size = requestCache.size
+    requestCache.clear()
+    console.log(`已清除所有排班缓存，共 ${size} 条`)
+  }
 }

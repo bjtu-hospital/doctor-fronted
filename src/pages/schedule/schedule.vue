@@ -9,7 +9,13 @@
     </view>
 
     <!-- 课程表主体 -->
-    <scroll-view class="schedule-grid" scroll-y="true">
+    <scroll-view 
+      class="schedule-grid" 
+      scroll-y="true"
+      refresher-enabled
+      :refresher-triggered="refreshing"
+      @refresherrefresh="handleRefresh"
+    >
       <!-- 上午行 -->
       <view class="grid-row">
         <view class="time-axis">
@@ -93,7 +99,7 @@
 import WeekHeader from './components/WeekHeader.vue'
 import ShiftItem from './components/ShiftItem.vue'
 import ShiftDetail from './components/ShiftDetail.vue'
-import { getWeekSchedules } from '@/api/schedule'
+import { getWeekSchedules, clearScheduleCache } from '@/api/schedule'
 
 export default {
   name: 'SchedulePage',
@@ -108,9 +114,12 @@ export default {
       schedules: [], // 直接存储 API 返回的 schedules 数组
       currentDate: this.getTodayDate(), // 周一日期
       loading: false,
+      refreshing: false, // 下拉刷新状态
       detailVisible: false,
       selectedShift: null,
-      weekDates: [] // 存储当前周的7天日期字符串
+      weekDates: [], // 存储当前周的7天日期字符串
+      scheduleCache: {}, // 缓存：key为weekOffset，value为schedules数据
+      loadTimer: null // 防抖定时器
     }
   },
 
@@ -121,6 +130,12 @@ export default {
     }
     this.initWeek()
     this.loadSchedules()
+  },
+  beforeDestroy() {
+    // 清理定时器
+    if (this.loadTimer) {
+      clearTimeout(this.loadTimer)
+    }
   },
   methods: {
     getTodayDate() {
@@ -176,20 +191,54 @@ export default {
     },
 
     async loadSchedules() {
-      this.loading = true
-      try {
-        const offset = this.getWeekOffset()
-        const response = await getWeekSchedules(this.doctorInfo.id || '6', offset)
-        
-        if (response && response.code === 0) {
-          // 直接使用 API 返回的 schedules 数组
-          this.schedules = response.message.schedules || []
-        }
-      } catch (error) {
-        console.error(error)
-      } finally {
-        this.loading = false
+      // 防抖：取消之前的请求
+      if (this.loadTimer) {
+        clearTimeout(this.loadTimer)
       }
+
+      // 延迟执行，避免快速切换时的重复请求
+      this.loadTimer = setTimeout(async () => {
+        const offset = this.getWeekOffset()
+        const cacheKey = `${this.doctorInfo.id || '6'}_${offset}`
+        
+        // 检查缓存
+        if (this.scheduleCache[cacheKey]) {
+          console.log('使用缓存数据', cacheKey)
+          this.schedules = this.scheduleCache[cacheKey]
+          return
+        }
+
+        // 避免重复加载
+        if (this.loading) {
+          console.log('正在加载中，跳过重复请求')
+          return
+        }
+
+        this.loading = true
+        try {
+          console.log('加载排班数据', cacheKey)
+          const response = await getWeekSchedules(this.doctorInfo.id || '6', offset)
+          
+          if (response && response.code === 0) {
+            // 直接使用 API 返回的 schedules 数组
+            this.schedules = response.message.schedules || []
+            // 存入缓存
+            this.scheduleCache[cacheKey] = this.schedules
+            console.log('数据加载成功并缓存', this.schedules.length)
+          } else {
+            console.error('数据加载失败', response)
+          }
+        } catch (error) {
+          console.error('请求出错', error)
+          uni.showToast({
+            title: '加载失败，请重试',
+            icon: 'none',
+            duration: 2000
+          })
+        } finally {
+          this.loading = false
+        }
+      }, 300) // 300ms 防抖延迟
     },
 
     handleWeekChange(newDate) {
@@ -197,6 +246,28 @@ export default {
       this.initWeek()
       // 重新加载数据
       this.loadSchedules()
+    },
+
+    // 下拉刷新
+    async handleRefresh() {
+      this.refreshing = true
+      try {
+        // 清除当前医生的所有缓存
+        clearScheduleCache(this.doctorInfo.id || '6')
+        // 清除页面级缓存
+        this.scheduleCache = {}
+        // 重新加载数据
+        await this.loadSchedules()
+        uni.showToast({
+          title: '刷新成功',
+          icon: 'success',
+          duration: 1500
+        })
+      } catch (error) {
+        console.error('刷新失败', error)
+      } finally {
+        this.refreshing = false
+      }
     },
 
     getShift(dayIndex, period) {
