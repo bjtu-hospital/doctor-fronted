@@ -68,7 +68,7 @@
 </template>
 
 <script>
-import { login, getUserInfo } from '@/api/auth'
+import { useAuthStore } from '@/store/auth'
 
 export default {
   data() {
@@ -85,7 +85,7 @@ export default {
     togglePassword() {
       this.passwordVisible = !this.passwordVisible
     },
-    handleSubmit() {
+    async handleSubmit() {
       if (!this.form.username.trim()) {
         uni.showToast({
           title: '请输入医生工号',
@@ -100,68 +100,43 @@ export default {
         })
         return
       }
-      this.loading = true
       
-      // 调用 API 进行登录
-      login({
-        identifier: this.form.username,
-        password: this.form.password,
-      })
-        .then(async (res) => {
-          this.loading = false
-          console.log('登录成功响应:', res)
-
-          // 后端当前返回结构：{ code:0, message: 'JWT_TOKEN_STRING' }
-          const rawToken = res?.data?.token || (typeof res?.message === 'string' ? res.message : null)
-          if (rawToken) {
-            uni.setStorageSync('token', rawToken)
-          } else {
-            console.warn('未从登录响应中解析到 token')
-          }
-
-          // 可选：获取用户信息填充 doctorInfo（依赖后端是否实现该接口）
-          try {
-            const userInfoRes = await getUserInfo()
-            if (userInfoRes?.code === 0 && userInfoRes?.message?.doctor) {
-              uni.setStorageSync('doctorInfo', userInfoRes.message.doctor)
-            }
-          } catch (e) {
-            console.warn('获取用户信息失败（可忽略）:', e)
-          }
-
+      this.loading = true
+      const authStore = useAuthStore()
+      
+      try {
+        // 使用 Store 进行登录
+        const result = await authStore.login({
+          identifier: this.form.username,
+          password: this.form.password
+        })
+        
+        this.loading = false
+        
+        if (result.success) {
           uni.showToast({
             title: '登录成功',
             icon: 'success',
             duration: 1200,
           })
-
-          // 登录成功后延迟跳转，确保 token 已写入
+          
+          // 登录成功后 1.5 秒跳转到工作台首页
           setTimeout(() => {
-            console.log('准备跳转到工作台...')
-            const platform = uni.getSystemInfoSync().platform
-            console.log('当前平台:', platform)
-            const target = '/pages/workbench/workbench'
-            console.log('使用最终跳转目标:', target)
             uni.reLaunch({
-              url: target,
-              success: () => {
-                console.log('✅ 跳转到工作台成功')
-              },
-              fail: (err) => {
-                console.error('❌ 跳转失败:', err)
-                uni.showToast({ title: '页面跳转失败', icon: 'none' })
-              }
+              url: '/pages/workbench/workbench'
             })
-          }, 800)
+          }, 1500)
+        } else {
+          throw new Error(result.error)
+        }
+      } catch (err) {
+        this.loading = false
+        console.error('登录失败:', err)
+        uni.showToast({
+          title: err.message || '登录失败，请重试',
+          icon: 'none',
         })
-        .catch((err) => {
-          this.loading = false
-          console.error('登录失败:', err)
-          uni.showToast({
-            title: err.message || '登录失败，请重试',
-            icon: 'none',
-          })
-        })
+      }
     },
   },
 }

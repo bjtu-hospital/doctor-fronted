@@ -1,7 +1,6 @@
 import { get, post } from '@/utils/request'
 import { workbenchAPI } from '../pages/workbench/workbench-mock'
 
-// 根据需要切换是否使用 Mock 数据
 const useMock = false
 
 /**
