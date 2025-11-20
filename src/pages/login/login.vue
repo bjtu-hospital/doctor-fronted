@@ -104,7 +104,7 @@ export default {
       
       // 调用 API 进行登录
       login({
-        username: this.form.username,
+        identifier: this.form.username,
         password: this.form.password,
       })
         .then((res) => {

@@ -7,13 +7,13 @@ const useMock = false
 
 /**
  * 登录
- * @param {string} username - 用户名/工号
+ * @param {string} identifier - 用户名/工号
  * @param {string} password - 密码
- * @returns {code: 0, message: {token: string, doctor: {id, name, department, hospital}}}
+ * @returns {code: 0, message: {userid: number, access_token: string, token_type: string}}
  */
-export function login({ username, password }) {
-  if (useMock) return authMock.login({ username, password })
-  return post('/auth/login', { username, password })
+export function login({ identifier, password }) {
+  if (useMock) return authMock.login({ username: identifier, password })
+  return post('/auth/staff/login', { identifier, password })
 }
 
 /**
