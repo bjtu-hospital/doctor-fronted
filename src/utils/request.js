@@ -1,227 +1,139 @@
 /**
- * uni-app 请求封装
- * 统一的网络请求配置和拦截器
+ * uni-app 网络请求封装
+ * 基于 uni.request
  */
 
-// 检测是否有 process 环境变量
-const _hasProcess = (typeof process !== 'undefined' && process && process.env)
+// 1. 基础配置
+// 优先使用环境变量，否则回退到本地后端默认端口 8000
+const getBaseUrl = () => {
+    const envUrl = import.meta.env.VITE_API_BASE_URL
+    if (envUrl && envUrl !== '/') {
+        return envUrl
+    }
+    return 'http://localhost:8000'
+}
 
-// API 基础路径
-const BASE_URL = _hasProcess
-    ? (process.env.VITE_API_BASE_URL || process.env.VUE_APP_API_BASE_URL || '/api')
-    : '/api'
+export const BASE_URL = getBaseUrl()
+console.log('当前 API Base URL:', BASE_URL)
 
-// 请求超时时间
 const TIMEOUT = 10000
 
-/**
- * 请求拦截器
- */
-function requestInterceptor(config) {
-    // 添加 token
-    const token = uni.getStorageSync('token')
-    if (token) {
-        config.header = config.header || {}
-        config.header.Authorization = `Bearer ${token}`
-    }
-
-    // 添加时间戳防止缓存
-    if (config.method === 'GET') {
-        config.data = config.data || {}
-        config.data._t = Date.now()
-    }
-
-    return config
-}
-
-/**
- * 响应拦截器
- */
-function responseInterceptor(response) {
-    const { statusCode, data } = response
-
-    // HTTP 状态码检查
-    if (statusCode === 401) {
-        handleAuthError('认证失败，请重新登录')
-        return Promise.reject(new Error('认证失败'))
-    }
-
-    if (statusCode >= 400) {
-        const errorMsg = data?.message || `请求失败 (${statusCode})`
-        return Promise.reject(new Error(errorMsg))
-    }
-
-    // 业务代码检查
-    if (data && data.code !== undefined) {
-        // code: 105 表示认证失效
-        if (data.code === 105) {
-            handleAuthError(data.message?.msg || '认证失效')
-            return Promise.reject(new Error('认证失效'))
-        }
-
-        // code: 0 表示成功
-        if (data.code === 0) {
-            return data
-        }
-
-        // 其他业务错误
-        const errorMsg = data.message || data.msg || '请求失败'
-        return Promise.reject(new Error(errorMsg))
-    }
-
-    return data
-}
-
-/**
- * 处理认证错误
- */
-function handleAuthError(message) {
-    // 清除 token
+// 2. 辅助函数：处理认证失效
+const handleAuthError = (msg = '认证失效，请重新登录') => {
+    uni.showToast({ title: msg, icon: 'none' })
     uni.removeStorageSync('token')
-
-    // 提示用户
-    uni.showToast({
-        title: message,
-        icon: 'none',
-        duration: 2000
-    })
-
-    // 延迟跳转到登录页
     setTimeout(() => {
-        const pages = getCurrentPages()
-        const currentPage = pages[pages.length - 1]
-
-        // 如果当前不在登录页，则跳转
-        if (currentPage && currentPage.route !== 'pages/login/login') {
-            uni.reLaunch({
-                url: '/pages/login/login'
-            })
-        }
-    }, 2000)
+        uni.reLaunch({ url: '/pages/login/login' })
+    }, 1500)
 }
 
 /**
- * 统一的请求方法
- * @param {Object} options - 请求配置
+ * 核心请求函数
+ * @param {Object} options 请求配置
  * @returns {Promise}
  */
-function request(options) {
-    // 合并默认配置
-    const config = {
-        url: BASE_URL + options.url,
-        method: options.method || 'GET',
-        data: options.data || {},
-        header: {
-            'Content-Type': 'application/json',
-            ...options.header
-        },
-        timeout: options.timeout || TIMEOUT,
-        ...options
-    }
+const request = (options = {}) => {
+    // 组装完整 URL
+    // 如果 options.url 已经是完整路径（http开头），则不拼接 BASE_URL
+    const url = options.url.startsWith('http')
+        ? options.url
+        : BASE_URL + options.url
 
-    // 执行请求拦截器
-    const interceptedConfig = requestInterceptor(config)
+    // 获取 Token
+    const token = uni.getStorageSync('token')
+
+    // 组装 Header
+    const header = {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        ...options.header
+    }
 
     return new Promise((resolve, reject) => {
         uni.request({
-            ...interceptedConfig,
+            url: url,
+            method: options.method || 'GET',
+            data: options.data || {},
+            header: header,
+            timeout: options.timeout || TIMEOUT,
             success: (res) => {
-                responseInterceptor(res)
-                    .then(resolve)
-                    .catch(reject)
+                const { statusCode, data } = res
+
+                // 1. HTTP 状态码错误
+                if (statusCode === 401) {
+                    handleAuthError()
+                    return reject(new Error('未授权'))
+                }
+
+                if (statusCode !== 200) {
+                    const msg = data?.message || `请求失败 [${statusCode}]`
+                    uni.showToast({ title: msg, icon: 'none' })
+                    return reject(new Error(msg))
+                }
+
+                // 2. 业务状态码错误 (假设后端返回结构为 { code, message, data })
+                if (data && typeof data.code !== 'undefined') {
+                    if (data.code === 0) {
+                        // 成功
+                        resolve(data)
+                    } else if (data.code === 105) {
+                        // Token 过期等
+                        handleAuthError(data.message || '登录已过期')
+                        reject(new Error(data.message))
+                    } else {
+                        // 其他业务错误
+                        const msg = data.message || '业务处理失败'
+                        uni.showToast({ title: msg, icon: 'none' })
+                        reject(new Error(msg))
+                    }
+                } else {
+                    // 兼容不规范的返回结构，直接返回 data
+                    resolve(data)
+                }
             },
             fail: (err) => {
-                console.error('请求失败:', err)
-                uni.showToast({
-                    title: err.errMsg || '网络请求失败',
-                    icon: 'none'
-                })
+                console.error('网络请求失败:', err)
+                uni.showToast({ title: '网络连接失败', icon: 'none' })
                 reject(err)
             }
         })
     })
 }
 
-/**
- * GET 请求
- */
-export function get(url, data, options = {}) {
-    return request({
-        url,
-        method: 'GET',
-        data,
-        ...options
-    })
-}
+// 导出常用方法
+export const get = (url, data, options) => request({ ...options, url, data, method: 'GET' })
+export const post = (url, data, options) => request({ ...options, url, data, method: 'POST' })
+export const put = (url, data, options) => request({ ...options, url, data, method: 'PUT' })
+export const del = (url, data, options) => request({ ...options, url, data, method: 'DELETE' })
 
-/**
- * POST 请求
- */
-export function post(url, data, options = {}) {
-    return request({
-        url,
-        method: 'POST',
-        data,
-        ...options
-    })
-}
-
-/**
- * PUT 请求
- */
-export function put(url, data, options = {}) {
-    return request({
-        url,
-        method: 'PUT',
-        data,
-        ...options
-    })
-}
-
-/**
- * DELETE 请求
- */
-export function del(url, data, options = {}) {
-    return request({
-        url,
-        method: 'DELETE',
-        data,
-        ...options
-    })
-}
-
-/**
- * 文件上传
- */
-export function upload(url, filePath, formData = {}, options = {}) {
+// 文件上传封装
+export const upload = (url, filePath, formData = {}) => {
+    const uploadUrl = url.startsWith('http') ? url : BASE_URL + url
     const token = uni.getStorageSync('token')
 
     return new Promise((resolve, reject) => {
         uni.uploadFile({
-            url: BASE_URL + url,
-            filePath,
+            url: uploadUrl,
+            filePath: filePath,
             name: 'file',
-            formData,
+            formData: formData,
             header: {
-                Authorization: token ? `Bearer ${token}` : '',
-                ...options.header
+                'Authorization': token ? `Bearer ${token}` : ''
             },
             success: (res) => {
+                // uni.uploadFile 返回的 data 是字符串，需要解析
                 try {
                     const data = JSON.parse(res.data)
-                    responseInterceptor({ statusCode: res.statusCode, data })
-                        .then(resolve)
-                        .catch(reject)
+                    if (res.statusCode === 200 && data.code === 0) {
+                        resolve(data)
+                    } else {
+                        reject(new Error(data.message || '上传失败'))
+                    }
                 } catch (e) {
-                    reject(new Error('响应数据解析失败'))
+                    reject(e)
                 }
             },
             fail: (err) => {
-                console.error('上传失败:', err)
-                uni.showToast({
-                    title: '上传失败',
-                    icon: 'none'
-                })
                 reject(err)
             }
         })
