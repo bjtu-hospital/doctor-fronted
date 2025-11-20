@@ -5,21 +5,20 @@
       scroll-y
       @scrolltolower="onReachBottom"
     >
-      <!-- 场景预览切换（仅开发环境可见） -->
-      <view v-if="showScenarioPanel" class="scenario-panel">
-        <text class="scenario-title">状态预览（仅开发调试）</text>
-        <view class="scenario-buttons">
-          <button
-            v-for="option in scenarioOptions"
-            :key="option.value"
-            class="scenario-btn"
-            size="mini"
-            :class="{ active: currentScenario === option.value }"
-            @tap="switchScenario(option.value)"
-          >
-            {{ option.label }}
-          </button>
+      <!-- 开发环境时间模拟器 -->
+      <view v-if="showTimeSimulator" class="time-simulator">
+        <text class="simulator-title">🕒 时间模拟器（仅开发）</text>
+        <view class="simulator-controls">
+          <input 
+            class="time-input" 
+            type="text" 
+            v-model="simulatedTime" 
+            placeholder="HH:mm 如 08:00"
+          />
+          <button class="sim-btn" size="mini" @tap="applySimulatedTime">应用</button>
+          <button class="sim-btn reset" size="mini" @tap="resetSimulatedTime">重置</button>
         </view>
+        <text class="simulator-hint">当前模拟: {{ simulatedTime || '实际时间' }}</text>
       </view>
 
       <!-- 问候区 -->
@@ -27,15 +26,19 @@
 
       <!-- 班次卡片 -->
       <ShiftCard
-        :status="shiftStatus.status"
-        :shift-info="shiftStatus.currentShift"
-        :checkin-time="shiftStatus.checkinTime"
-        :checkout-time="shiftStatus.checkoutTime"
-        :work-duration="shiftStatus.workDuration"
-        :time-to-checkout="shiftStatus.timeToCheckout"
+        :status="currentShiftData.status"
+        :shift-info="currentShiftData.shiftInfo"
+        :checkin-time="currentShiftData.checkinTime"
+        :checkout-time="currentShiftData.checkoutTime"
+        :work-duration="currentShiftData.workDuration"
+        :time-to-checkout="currentShiftData.timeToCheckout"
         :countdown="countdown"
         :location-loading="locationInfo.loading"
-        :key="`shift-${shiftStatus.status}`"
+        :signed-in="isSignedIn"
+        :signed-out="isSignedOut"
+        :shift-date="currentShiftDate"
+        :simulated-time="simulatedTime"
+        :key="`shift-${currentShiftData.status}-${currentShiftDate}-${simulatedTime}`"
         @checkin="handleCheckin"
         @checkout="handleCheckout"
         @refresh-location="handleRefreshLocation"
@@ -66,7 +69,7 @@ import DashboardSection from './components/DashboardSection.vue'
 import ShortcutsSection from './components/ShortcutsSection.vue'
 import RemindersSection from './components/RemindersSection.vue'
 import RecentRecordsSection from './components/RecentRecordsSection.vue'
-import { getDashboardData, checkin, checkout } from '@/api/workbench'
+import { getDashboardData, checkin, checkout, getShifts, getConsultationStats, getRecentConsultations } from '@/api/workbench'
 
 export default {
   name: 'WorkbenchPage',
@@ -113,6 +116,17 @@ export default {
       // 最近接诊记录
       recentRecords: [],
 
+      // 班次列表（独立接口返回）
+      shifts: [],
+
+      // 接诊统计（独立接口返回）
+      consultationStats: {
+        pending: 0,
+        ongoing: 0,
+        completed: 0,
+        total: 0
+      },
+
       // 倒计时
       countdown: '',
 
@@ -126,18 +140,61 @@ export default {
         error: null
       },
 
-      // 开发场景控制
-      showScenarioPanel: process.env.NODE_ENV !== 'production',
-      scenarioOptions: [
-        { label: '未签到', value: 'notCheckin' },
-        { label: '已签到', value: 'checkedIn' },
-        { label: '待签退', value: 'checkoutPending' },
-        { label: '已签退', value: 'checkedOut' }
-      ],
-
       // 加载状态
       loading: false,
-      currentScenario: 'notCheckin' // Mock 场景选择
+      
+      // 当前班次日期（用于跨天判断）
+      currentShiftDate: '',
+
+      // 开发环境时间模拟（用于测试）
+      simulatedTime: null, // 格式: 'HH:mm' 或 null
+      showTimeSimulator: process.env.NODE_ENV === 'development'
+    }
+  },
+
+  computed: {
+    // 当前班次数据（根据时间智能选择）
+    currentShiftData() {
+      // 如果有 shifts 数据，根据当前时间选择应显示的班次
+      if (this.shifts && this.shifts.length > 0) {
+        const selectedShift = this.selectCurrentShift(this.shifts)
+        if (selectedShift) {
+          return {
+            status: this.mapShiftStatus(selectedShift.status),
+            shiftInfo: {
+              id: selectedShift.id,
+              name: selectedShift.name,
+              startTime: selectedShift.startTime,
+              endTime: selectedShift.endTime,
+              location: selectedShift.location
+            },
+            checkinTime: selectedShift.status === 'checked_in' || selectedShift.status === 'checkout_pending' || selectedShift.status === 'checked_out' ? selectedShift.startTime : '',
+            checkoutTime: selectedShift.status === 'checked_out' ? selectedShift.endTime : '',
+            workDuration: '',
+            timeToCheckout: ''
+          }
+        }
+      }
+      // 否则使用 dashboard 接口返回的数据
+      return {
+        status: this.shiftStatus.status,
+        shiftInfo: this.shiftStatus.currentShift,
+        checkinTime: this.shiftStatus.checkinTime,
+        checkoutTime: this.shiftStatus.checkoutTime,
+        workDuration: this.shiftStatus.workDuration,
+        timeToCheckout: this.shiftStatus.timeToCheckout
+      }
+    },
+    // 是否已签到
+    isSignedIn() {
+      const status = this.currentShiftData.status
+      return status === 'checked_in' || 
+             status === 'checkout_pending' || 
+             status === 'checked_out'
+    },
+    // 是否已签退
+    isSignedOut() {
+      return this.currentShiftData.status === 'checked_out'
     }
   },
 
@@ -151,6 +208,8 @@ export default {
   },
 
   mounted() {
+    // 初始化当前班次日期为今天
+    this.currentShiftDate = this.formatDate(new Date())
     // 页面加载时获取工作台数据
     this.loadDashboardData()
     // 首次进入页面立即获取一次定位
@@ -175,7 +234,7 @@ export default {
     async loadDashboardData() {
       this.loading = true
       try {
-        const response = await getDashboardData(this.currentScenario)
+        const response = await getDashboardData()
         if (response && response.code === 0) {
           const data = response.message
           this.doctorInfo = data.doctor
@@ -184,6 +243,12 @@ export default {
           this.reminders = data.reminders
           this.recentRecords = data.recentRecords
           this.updateCountdown()
+          // 仪表盘成功后再拉取其余三个接口（需要 doctorId ）
+          if (this.doctorInfo?.id) {
+            this.loadAdditionalData(this.doctorInfo.id)
+          } else {
+            console.warn('[Workbench] 未获取到 doctorId，跳过附加接口调用')
+          }
         } else {
           uni.showToast({
             title: '数据加载失败',
@@ -202,11 +267,146 @@ export default {
     },
 
     /**
+     * 加载附加数据：班次列表 + 接诊统计 + 最近接诊记录（独立接口）
+     */
+    async loadAdditionalData(doctorId) {
+      console.log('[Workbench] 开始加载附加数据 doctorId=', doctorId)
+      try {
+        const dateStr = this.formatDate(new Date())
+        const [shiftsRes, statsRes, recentRes] = await Promise.all([
+          getShifts(doctorId, dateStr),
+          getConsultationStats(doctorId),
+          getRecentConsultations(doctorId, 5)
+        ])
+
+        console.log('[Workbench] shifts raw:', shiftsRes)
+        console.log('[Workbench] consultation-stats raw:', statsRes)
+        console.log('[Workbench] recent-consultations raw:', recentRes)
+
+        if (shiftsRes?.code === 0) {
+          this.shifts = shiftsRes.message?.shifts || []
+          // 更新 currentShiftDate 为班次日期
+          if (this.shifts.length > 0) {
+            // 假设所有班次日期相同，使用第一个班次的日期（或传入的 dateStr）
+            this.currentShiftDate = dateStr
+          }
+        }
+        if (statsRes?.code === 0) {
+          // 后端定义为 pending/ongoing/completed/total
+          this.consultationStats = {
+            pending: statsRes.message?.pending || 0,
+            ongoing: statsRes.message?.ongoing || 0,
+            completed: statsRes.message?.completed || 0,
+            total: statsRes.message?.total || 0
+          }
+          // 可同步到 todayData 若希望实时覆盖仪表盘统计
+          this.todayData = {
+            pendingConsultation: this.consultationStats.pending,
+            ongoingConsultation: this.consultationStats.ongoing,
+            completedConsultation: this.consultationStats.completed,
+            totalConsultation: this.consultationStats.total
+          }
+        }
+        if (recentRes?.code === 0) {
+          const records = recentRes.message?.records || []
+          // 用接口最新数据覆盖仪表盘中的 recentRecords
+          this.recentRecords = records
+        }
+      } catch (e) {
+        console.error('[Workbench] 附加数据加载失败:', e)
+        uni.showToast({ title: '附加数据加载失败', icon: 'none' })
+      }
+    },
+
+    /**
+     * 格式化日期为 YYYY-MM-DD
+     */
+    formatDate(date) {
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    },
+
+    /**
+     * 根据当前时间选择应显示的班次
+     */
+    selectCurrentShift(shifts) {
+      if (!shifts || shifts.length === 0) return null
+      if (shifts.length === 1) return shifts[0]
+
+      // 使用模拟时间或实际时间
+      let currentTime
+      if (this.simulatedTime && /^\d{2}:\d{2}$/.test(this.simulatedTime)) {
+        const [h, m] = this.simulatedTime.split(':').map(Number)
+        currentTime = h * 60 + m
+      } else {
+        const now = new Date()
+        currentTime = now.getHours() * 60 + now.getMinutes()
+      }
+
+      // 将班次按开始时间排序
+      const sortedShifts = [...shifts].sort((a, b) => {
+        const [aH, aM] = a.startTime.split(':').map(Number)
+        const [bH, bM] = b.startTime.split(':').map(Number)
+        return (aH * 60 + aM) - (bH * 60 + bM)
+      })
+
+      // 1. 优先查找已签到但未签退的班次
+      const activeShift = sortedShifts.find(s => 
+        s.status === 'checked_in' || s.status === 'checkout_pending'
+      )
+      if (activeShift) return activeShift
+
+      // 2. 查找当前时间段内的班次（开始前30分钟到结束后2小时）
+      for (const shift of sortedShifts) {
+        const [startH, startM] = shift.startTime.split(':').map(Number)
+        const [endH, endM] = shift.endTime.split(':').map(Number)
+        const startTime = startH * 60 + startM
+        const endTime = endH * 60 + endM
+        const allowStart = startTime - 30 // 开始前30分钟
+        const allowEnd = endTime + 120 // 结束后2小时
+
+        if (currentTime >= allowStart && currentTime <= allowEnd) {
+          return shift
+        }
+      }
+
+      // 3. 如果当前时间在所有班次之前，返回第一个班次
+      const firstShiftStart = (() => {
+        const [h, m] = sortedShifts[0].startTime.split(':').map(Number)
+        return h * 60 + m - 30
+      })()
+      if (currentTime < firstShiftStart) {
+        return sortedShifts[0]
+      }
+
+      // 4. 如果当前时间在所有班次之后，返回最后一个班次
+      return sortedShifts[sortedShifts.length - 1]
+    },
+
+    /**
+     * 映射后端班次状态到前端状态
+     */
+    mapShiftStatus(backendStatus) {
+      // 后端状态: not_started, checked_in, checkout_pending, checked_out
+      // 前端状态: not_checkin, checked_in, checkout_pending, checked_out
+      const statusMap = {
+        'not_started': 'not_checkin',
+        'checked_in': 'checked_in',
+        'checkout_pending': 'checkout_pending',
+        'checked_out': 'checked_out'
+      }
+      return statusMap[backendStatus] || 'not_checkin'
+    },
+
+    /**
      * 更新倒计时文本
      */
     updateCountdown() {
-      if (this.shiftStatus.status === 'not_checkin' && this.shiftStatus.currentShift) {
-        const startTime = this.shiftStatus.currentShift.startTime
+      const shiftData = this.currentShiftData
+      if (shiftData.status === 'not_checkin' && shiftData.shiftInfo) {
+        const startTime = shiftData.shiftInfo.startTime
         const [hour, minute] = startTime.split(':').map(Number)
         const now = new Date()
         const shiftStart = new Date()
@@ -249,8 +449,6 @@ export default {
             title: data?.message || '签到成功',
             icon: 'success'
           })
-          // 更新场景为已签到
-          this.currentScenario = 'checkedIn'
           // 刷新数据
           setTimeout(() => {
             this.loadDashboardData()
@@ -293,8 +491,6 @@ export default {
             title: data?.message || '签退成功',
             icon: 'success'
           })
-          // 更新场景为待签退
-          this.currentScenario = 'checkoutPending'
           // 刷新数据
           setTimeout(() => {
             this.loadDashboardData()
@@ -444,14 +640,32 @@ export default {
     },
 
     /**
-     * 切换模拟场景
+     * 应用模拟时间
      */
-    switchScenario(scenario) {
-      if (this.currentScenario === scenario) {
+    applySimulatedTime() {
+      if (!this.simulatedTime) {
+        uni.showToast({ title: '请输入时间', icon: 'none' })
         return
       }
-      this.currentScenario = scenario
-      this.loadDashboardData()
+      if (!/^\d{2}:\d{2}$/.test(this.simulatedTime)) {
+        uni.showToast({ title: '格式错误，请使用 HH:mm', icon: 'none' })
+        return
+      }
+      uni.showToast({ 
+        title: `已应用模拟时间: ${this.simulatedTime}`, 
+        icon: 'success' 
+      })
+      // 强制刷新卡片显示
+      this.$forceUpdate()
+    },
+
+    /**
+     * 重置模拟时间
+     */
+    resetSimulatedTime() {
+      this.simulatedTime = null
+      uni.showToast({ title: '已重置为实际时间', icon: 'success' })
+      this.$forceUpdate()
     }
   }
 }
@@ -474,41 +688,63 @@ export default {
   padding-top: 60rpx;
 }
 
-.scenario-panel {
+.time-simulator {
   margin: 0 24rpx 24rpx;
-  padding: 16rpx 20rpx;
-  background: #fffbe6;
-  border: 1rpx solid #ffe58f;
+  padding: 20rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 16rpx;
-  color: #8c6d1f;
+  color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.4);
 
-  .scenario-title {
-    font-size: 24rpx;
-    font-weight: 600;
+  .simulator-title {
+    font-size: 26rpx;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 16rpx;
   }
 
-  .scenario-buttons {
-    margin-top: 12rpx;
+  .simulator-controls {
     display: flex;
-    flex-wrap: wrap;
     gap: 12rpx;
+    align-items: center;
+    margin-bottom: 12rpx;
   }
 
-  .scenario-btn {
-    background: #fff;
-    border: 1rpx solid #ffd666;
-    color: #8c6d1f;
-    padding: 0 20rpx;
+  .time-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1rpx solid rgba(255, 255, 255, 0.3);
+    border-radius: 8rpx;
+    padding: 12rpx 16rpx;
+    color: #fff;
+    font-size: 24rpx;
+
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+  }
+
+  .sim-btn {
+    background: rgba(255, 255, 255, 0.9);
+    color: #667eea;
+    border: none;
+    border-radius: 8rpx;
+    padding: 0 24rpx;
     height: 56rpx;
     line-height: 56rpx;
-    border-radius: 12rpx;
     font-size: 22rpx;
+    font-weight: 600;
 
-    &.active {
-      background: #ffd666;
-      color: #5c4311;
-      box-shadow: 0 4rpx 12rpx rgba(255, 214, 102, 0.5);
+    &.reset {
+      background: rgba(255, 255, 255, 0.3);
+      color: #fff;
     }
+  }
+
+  .simulator-hint {
+    font-size: 20rpx;
+    opacity: 0.85;
+    display: block;
   }
 }
 

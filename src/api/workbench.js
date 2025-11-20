@@ -4,77 +4,115 @@ import { workbenchAPI } from '../pages/workbench/workbench-mock'
 const useMock = false
 
 /**
- * 获取工作台数据
- * @param {string} scenario - Mock场景: 'notCheckin' | 'checkedIn' | 'checkoutPending'
- * @returns {code: 0, message: {doctor: object, shiftStatus: object, todayData: object, reminders: array, recentRecords: array}}
+ * 获取工作台仪表盘数据
+ * 后端：GET /doctor/workbench/dashboard
+ * @param {string} scenario - Mock 场景: 'notCheckin' | 'checkedIn' | 'checkoutPending'
+ * @returns {code: 0, message: {doctor, shiftStatus, todayData, reminders, recentRecords}}
  */
 export function getDashboardData(scenario = 'notCheckin') {
   if (useMock) return workbenchAPI.getDashboard(scenario)
-  return get('/workbench/dashboard')
+  return get('/doctor/workbench/dashboard')
 }
 
 /**
  * 签到
- * @param {number} shiftId - 班次ID
- * @param {number} latitude - 纬度
- * @param {number} longitude - 经度
- * @returns {code: 0, message: {checkinTime: string, status: string, message: string, workDuration: string}}
+ * 后端：POST /doctor/workbench/checkin
+ * @param {number} shiftId 班次ID
+ * @param {number} latitude 纬度
+ * @param {number} longitude 经度
+ * @returns {code: 0, message: {checkinTime, status, message, workDuration}}
  */
 export function checkin(shiftId, latitude, longitude) {
   if (useMock) return workbenchAPI.checkin({ latitude, longitude, shiftId })
-  return post('/workbench/checkin', { latitude, longitude, shiftId })
+  return post('/doctor/workbench/checkin', { shiftId, latitude, longitude })
 }
 
 /**
  * 签退
- * @param {number} shiftId - 班次ID
- * @param {number} latitude - 纬度
- * @param {number} longitude - 经度
- * @returns {code: 0, message: {checkoutTime: string, workDuration: string, status: string, message: string}}
+ * 后端：POST /doctor/workbench/checkout
+ * @param {number} shiftId 班次ID
+ * @param {number} latitude 纬度
+ * @param {number} longitude 经度
+ * @returns {code: 0, message: {checkoutTime, workDuration, status, message}}
  */
 export function checkout(shiftId, latitude, longitude) {
   if (useMock) return workbenchAPI.checkout({ latitude, longitude, shiftId })
-  return post('/workbench/checkout', { latitude, longitude, shiftId })
+  return post('/doctor/workbench/checkout', { shiftId, latitude, longitude })
 }
 
 /**
- * 获取班次
- * @param {number} doctorId - 医生ID
- * @param {string} date - 日期 YYYY-MM-DD
- * @returns {code: 0, message: {shifts: [{id, name, startTime, endTime, location, status}]}}
+ * 获取排班班次列表
+ * 后端：GET /doctor/workbench/shifts?doctorId=&date_str=
+ * @param {number} doctorId 医生ID
+ * @param {string} dateStr 日期 YYYY-MM-DD (对应后端参数 date_str)
+ * @returns {code: 0, message: {shifts: [{id,name,startTime,endTime,location,status}]}}
  */
-export function getShifts(doctorId, date) {
-  if (useMock) return workbenchAPI.getShifts({ doctorId, date })
-  return get('/workbench/shifts', { doctorId, date })
+export function getShifts(doctorId, dateStr) {
+  if (useMock) return workbenchAPI.getShifts({ doctorId, date: dateStr })
+  return get('/doctor/workbench/shifts', { doctorId, date_str: dateStr })
 }
 
 /**
  * 获取接诊统计
- * @param {number} doctorId - 医生ID
- * @returns {code: 0, message: {pending: number, ongoing: number, completed: number, total: number}}
+ * 后端：GET /doctor/workbench/consultation-stats?doctorId=
+ * @param {number} doctorId 医生ID
+ * @returns {code: 0, message: {pending, ongoing, completed, total}}
  */
 export function getConsultationStats(doctorId) {
   if (useMock) return workbenchAPI.getConsultationStats({ doctorId })
-  return get('/workbench/consultation-stats', { doctorId })
-}
-
-/**
- * 获取待办提醒
- * @param {number} doctorId - 医生ID
- * @returns {code: 0, message: {reminders: [{id, type, title, icon, time}]}}
- */
-export function getReminders(doctorId) {
-  if (useMock) return workbenchAPI.getReminders({ doctorId })
-  return get('/workbench/reminders', { doctorId })
+  return get('/doctor/workbench/consultation-stats', { doctorId })
 }
 
 /**
  * 获取最近接诊记录
- * @param {number} doctorId - 医生ID
- * @param {number} limit - 数量限制，默认3
- * @returns {code: 0, message: {records: [{id, patientName, consultationTime, diagnosis}]}}
+ * 后端：GET /doctor/workbench/recent-consultations?doctorId=&limit=
+ * @param {number} doctorId 医生ID
+ * @param {number} limit 返回条数，默认3
+ * @returns {code: 0, message: {records: [{id,patientName,consultationTime,diagnosis}]}}
  */
 export function getRecentConsultations(doctorId, limit = 3) {
   if (useMock) return workbenchAPI.getRecentConsultations({ doctorId, limit })
-  return get('/workbench/recent-consultations', { doctorId, limit })
+  return get('/doctor/workbench/recent-consultations', { doctorId, limit })
+}
+
+/**
+ * 获取考勤历史记录
+ * 后端：GET /doctor/workbench/attendance-records?doctorId=&start_date=&end_date=&page=&page_size=
+ * @param {number} doctorId 医生ID
+ * @param {string} startDate 开始日期 YYYY-MM-DD
+ * @param {string} endDate 结束日期 YYYY-MM-DD
+ * @param {number} page 页码，默认1
+ * @param {number} pageSize 每页数量，默认20 (对应后端 page_size)
+ * @returns {code: 0, message: {records: [{record_id,schedule_id,checkin_time,checkout_time,work_duration_minutes,status,created_at}], total}}
+ */
+export function getAttendanceRecords(doctorId, startDate, endDate, page = 1, pageSize = 20) {
+  if (useMock) {
+    // Mock 不一定实现，按需要扩展。这里复用 dashboard / shifts 数据组合或返回空结构
+    return Promise.resolve({
+      code: 0,
+      message: {
+        records: [],
+        total: 0
+      }
+    })
+  }
+  return get('/doctor/workbench/attendance-records', {
+    doctorId,
+    start_date: startDate,
+    end_date: endDate,
+    page,
+    page_size: pageSize
+  })
+}
+
+/**
+ * 提醒：后端未提供单独 /reminders 接口，提醒数据包含在 dashboard 返回中。
+ * 若已有调用处使用该函数，可临时返回 dashboard 中的 reminders（Mock 模式支持）。
+ * 生产环境建议直接使用 getDashboardData().
+ * @deprecated 请改用 getDashboardData。
+ */
+export async function getReminders(doctorId) {
+  if (useMock) return workbenchAPI.getReminders({ doctorId })
+  const dashboard = await getDashboardData()
+  return { code: 0, message: { reminders: dashboard?.message?.reminders || [] } }
 }

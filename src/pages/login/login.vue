@@ -117,7 +117,7 @@ export default {
           uni.showToast({
             title: '登录成功',
             icon: 'success',
-            duration: 1500,
+            duration: 1200,
           })
           
           // 登录成功后 1.5 秒跳转到工作台首页
