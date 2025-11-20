@@ -40,7 +40,7 @@ export default {
         {
           icon: '▦',
           label: '工作台',
-          path: '/pages/workbench/index',
+          path: '/pages/workbench/workbench',
           badge: ''
         },
         {

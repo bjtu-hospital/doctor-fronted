@@ -45,30 +45,30 @@ export default {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16rpx;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12rpx;
 }
 
 .data-card {
-  border-radius: 24rpx;
-  padding: 24rpx 16rpx;
+  border-radius: 16rpx;
+  padding: 16rpx 12rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  box-shadow: 0 8rpx 20rpx rgba(15, 27, 48, 0.06);
+  box-shadow: 0 4rpx 12rpx rgba(15, 27, 48, 0.05);
   background: #fff;
 
   .data-number {
-    font-size: 40rpx;
+    font-size: 28rpx;
     font-weight: 700;
     line-height: 1;
   }
 
   .data-label {
-    font-size: 22rpx;
-    font-weight: 500;
+    font-size: 18rpx;
+    font-weight: 400;
   }
 
   &.pending {
@@ -108,3 +108,4 @@ export default {
   }
 }
 </style>
+

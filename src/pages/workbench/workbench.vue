@@ -5,6 +5,23 @@
       scroll-y
       @scrolltolower="onReachBottom"
     >
+      <!-- 场景预览切换（仅开发环境可见） -->
+      <view v-if="showScenarioPanel" class="scenario-panel">
+        <text class="scenario-title">状态预览（仅开发调试）</text>
+        <view class="scenario-buttons">
+          <button
+            v-for="option in scenarioOptions"
+            :key="option.value"
+            class="scenario-btn"
+            size="mini"
+            :class="{ active: currentScenario === option.value }"
+            @tap="switchScenario(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </view>
+      </view>
+
       <!-- 问候区 -->
       <GreetingSection :doctor-name="doctorInfo.name" />
 
@@ -13,12 +30,15 @@
         :status="shiftStatus.status"
         :shift-info="shiftStatus.currentShift"
         :checkin-time="shiftStatus.checkinTime"
+        :checkout-time="shiftStatus.checkoutTime"
         :work-duration="shiftStatus.workDuration"
         :time-to-checkout="shiftStatus.timeToCheckout"
         :countdown="countdown"
+        :location-loading="locationInfo.loading"
         :key="`shift-${shiftStatus.status}`"
         @checkin="handleCheckin"
         @checkout="handleCheckout"
+        @refresh-location="handleRefreshLocation"
       />
 
       <!-- 今日数据看板 -->
@@ -96,6 +116,25 @@ export default {
       // 倒计时
       countdown: '',
 
+      // 定位信息
+      locationInfo: {
+        latitude: null,
+        longitude: null,
+        loading: false,
+        updatedAt: null,
+        accuracy: null,
+        error: null
+      },
+
+      // 开发场景控制
+      showScenarioPanel: process.env.NODE_ENV !== 'production',
+      scenarioOptions: [
+        { label: '未签到', value: 'notCheckin' },
+        { label: '已签到', value: 'checkedIn' },
+        { label: '待签退', value: 'checkoutPending' },
+        { label: '已签退', value: 'checkedOut' }
+      ],
+
       // 加载状态
       loading: false,
       currentScenario: 'notCheckin' // Mock 场景选择
@@ -114,6 +153,8 @@ export default {
   mounted() {
     // 页面加载时获取工作台数据
     this.loadDashboardData()
+    // 首次进入页面立即获取一次定位
+    this.fetchLocation()
 
     // 定时刷新倒计时（每分钟）
     this.countdownInterval = setInterval(() => {
@@ -189,10 +230,11 @@ export default {
      * 处理签到
      */
     async handleCheckin(shiftId) {
-      // 需要先获取定位
-      this.getLocation((lat, lng) => {
-        this.performCheckin(shiftId, lat, lng)
-      })
+      const hasLocation = await this.ensureLocationReady(true)
+      if (!hasLocation) {
+        return
+      }
+      this.performCheckin(shiftId, this.locationInfo.latitude, this.locationInfo.longitude)
     },
 
     /**
@@ -232,10 +274,11 @@ export default {
      * 处理签退
      */
     async handleCheckout(shiftId) {
-      // 需要先获取定位
-      this.getLocation((lat, lng) => {
-        this.performCheckout(shiftId, lat, lng)
-      })
+      const hasLocation = await this.ensureLocationReady(true)
+      if (!hasLocation) {
+        return
+      }
+      this.performCheckout(shiftId, this.locationInfo.latitude, this.locationInfo.longitude)
     },
 
     /**
@@ -275,23 +318,122 @@ export default {
      * 获取设备定位
      * 注意：小程序环境需要用户授权
      */
-    getLocation(callback) {
-      uni.getLocation({
-        type: 'gcj02',
-        success: (res) => {
-          callback(res.latitude, res.longitude)
-        },
-        fail: (err) => {
-          console.warn('获取定位失败:', err)
-          // Mock 模式下使用假数据继续
-          uni.showToast({
-            title: '请开启定位权限',
-            icon: 'none'
-          })
-          // 为了开发调试，使用默认坐标
-          callback(39.9042, 116.4074)
+    async handleRefreshLocation() {
+      await this.fetchLocation(true)
+    },
+
+    async ensureLocationReady(fetchIfMissing = false) {
+      if (
+        this.locationInfo.latitude !== null &&
+        this.locationInfo.longitude !== null &&
+        !fetchIfMissing
+      ) {
+        return true
+      }
+      if (
+        (this.locationInfo.latitude === null || this.locationInfo.longitude === null) ||
+        fetchIfMissing
+      ) {
+        await this.fetchLocation(true)
+      }
+      if (this.locationInfo.latitude === null || this.locationInfo.longitude === null) {
+        uni.showToast({ title: '无法获取定位，禁止操作', icon: 'none' })
+        return false
+      }
+      return true
+    },
+
+    async fetchLocation(showToast = false) {
+      if (this.locationInfo.loading) {
+        return
+      }
+      this.locationInfo = { ...this.locationInfo, loading: true, error: null }
+      try {
+        const location = await this.obtainLocation()
+        this.locationInfo = {
+          ...this.locationInfo,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          loading: false,
+          updatedAt: Date.now(),
+          accuracy: location.accuracy || location.horizontalAccuracy || null,
+          error: null
         }
+        if (showToast) {
+          uni.showToast({ title: '定位成功', icon: 'success' })
+        }
+      } catch (error) {
+        console.warn('获取定位失败:', error)
+        const message = error?.errMsg || error?.message || '定位失败，请检查权限'
+        this.locationInfo = {
+          ...this.locationInfo,
+          loading: false,
+          error: message
+        }
+        uni.showToast({ title: message, icon: 'none' })
+      }
+    },
+
+    obtainLocation() {
+      return new Promise((resolve, reject) => {
+        uni.getLocation({
+          type: 'wgs84',
+          geocode: true,
+          isHighAccuracy: true,
+          highAccuracyExpireTime: 8000,
+          success: (res) => {
+          resolve({
+            latitude: res.latitude,
+            longitude: res.longitude,
+            accuracy: res.accuracy || res.horizontalAccuracy
+          })
+          },
+          fail: (err) => {
+            const needFallback = this.isCoordinateTranslationError(err) || this.isProviderMissing(err)
+            if (needFallback) {
+              this.getBrowserLocation().then(resolve).catch(reject)
+            } else {
+              reject(err)
+            }
+          }
+        })
       })
+    },
+
+    getBrowserLocation() {
+      return new Promise((resolve, reject) => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+          reject(new Error('当前环境不支持浏览器定位'))
+          return
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy || null
+            })
+          },
+          (error) => {
+            reject(error)
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        )
+      })
+    },
+
+    isCoordinateTranslationError(error) {
+      const msg = error?.errMsg || ''
+      return msg.includes('translate coordinate') || msg.includes('map provider not configured')
+    },
+
+    isProviderMissing(error) {
+      const msg = error?.errMsg || ''
+      return msg.includes('provider not support') || msg.includes('map provider')
     },
 
     /**
@@ -299,6 +441,17 @@ export default {
      */
     onReachBottom() {
       // 可用于加载更多数据
+    },
+
+    /**
+     * 切换模拟场景
+     */
+    switchScenario(scenario) {
+      if (this.currentScenario === scenario) {
+        return
+      }
+      this.currentScenario = scenario
+      this.loadDashboardData()
     }
   }
 }
@@ -319,6 +472,44 @@ export default {
   overflow-y: auto;
   background: #f8faff;
   padding-top: 60rpx;
+}
+
+.scenario-panel {
+  margin: 0 24rpx 24rpx;
+  padding: 16rpx 20rpx;
+  background: #fffbe6;
+  border: 1rpx solid #ffe58f;
+  border-radius: 16rpx;
+  color: #8c6d1f;
+
+  .scenario-title {
+    font-size: 24rpx;
+    font-weight: 600;
+  }
+
+  .scenario-buttons {
+    margin-top: 12rpx;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+  }
+
+  .scenario-btn {
+    background: #fff;
+    border: 1rpx solid #ffd666;
+    color: #8c6d1f;
+    padding: 0 20rpx;
+    height: 56rpx;
+    line-height: 56rpx;
+    border-radius: 12rpx;
+    font-size: 22rpx;
+
+    &.active {
+      background: #ffd666;
+      color: #5c4311;
+      box-shadow: 0 4rpx 12rpx rgba(255, 214, 102, 0.5);
+    }
+  }
 }
 
 .bottom-spacer {

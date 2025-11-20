@@ -133,7 +133,7 @@ export default {
             console.log('当前平台:', platform)
             
             // 使用 pages.json 中定义的页面路径，并保证以 '/' 开头
-            const target = '/pages/workbench/index'
+            const target = '/pages/workbench/workbench'
             console.log('使用最终跳转目标:', target)
             uni.reLaunch({
               url: target,
