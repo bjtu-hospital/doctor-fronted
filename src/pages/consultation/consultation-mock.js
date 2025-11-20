@@ -3,46 +3,64 @@ function clone(obj) {
     return JSON.parse(JSON.stringify(obj))
 }
 
-// 初始数据（种子）
+// 初始数据（种子）- 匹配真实后端API结构
 const seed = {
     stats: {
-        totalSource: 50,
-        waitingCount: 4,
+        totalSlots: 50,
+        confirmedCount: 30,
+        waitlistCount: 5,
         completedCount: 15,
+        waitingCount: 4,
         passedCount: 2
     },
+    scheduleInfo: {
+        scheduleId: 5669,
+        doctorId: 6,
+        date: '2025-11-21',
+        timeSection: '上午'
+    },
     currentPatient: {
-        id: '1001',
-        name: '张三',
+        orderId: 101,
+        patientId: 1001,
+        patientName: '张三',
         gender: '男',
         age: 35,
         queueNumber: 'A016',
-        status: 'consulting',
-        visitTime: '2023-10-27 09:30',
-        symptoms: '头痛，发热3天，伴有咳嗽。',
-        history: '无既往病史',
-        passCount: 0
+        status: 'confirmed',
+        isCall: true,
+        callTime: '2025-11-21 09:30:00',
+        visitTime: '2025-11-21 09:30',
+        passCount: 0,
+        priority: 0
     },
     nextPatient: {
-        id: '1002',
-        name: '李四',
+        orderId: 102,
+        patientId: 1002,
+        patientName: '李四',
+        gender: '女',
+        age: 28,
         queueNumber: 'A017',
-        status: 'waiting'
+        status: 'confirmed',
+        isCall: false,
+        callTime: null,
+        visitTime: '2025-11-21 09:45',
+        passCount: 0,
+        priority: 0
     },
     queue: [
-        { id: '1001', name: '张三', gender: '男', age: 35, queueNumber: 'A016', status: 'consulting', passCount: 0 },
-        { id: '1002', name: '李四', gender: '女', age: 28, queueNumber: 'A017', status: 'waiting', passCount: 0 },
-        { id: '1003', name: '王五', gender: '男', age: 45, queueNumber: 'A018', status: 'waiting', passCount: 0 },
-        { id: '1004', name: '赵六', gender: '女', age: 62, queueNumber: 'A019', status: 'waiting', passCount: 0 },
-        { id: '1005', name: '钱七', gender: '男', age: 18, queueNumber: 'A020', status: 'waiting', passCount: 0 },
-        { id: '1006', name: '孙八', gender: '女', age: 25, queueNumber: 'A010', status: 'passed', passCount: 1 },
-        { id: '1007', name: '周九', gender: '男', age: 30, queueNumber: 'A005', status: 'passed', passCount: 1 },
+        { orderId: 103, patientId: 1003, patientName: '王五', gender: '男', age: 45, queueNumber: 'A018', status: 'confirmed', isCall: false, callTime: null, visitTime: '2025-11-21 10:00', passCount: 0, priority: 0 },
+        { orderId: 104, patientId: 1004, patientName: '赵六', gender: '女', age: 62, queueNumber: 'A019', status: 'confirmed', isCall: false, callTime: null, visitTime: '2025-11-21 10:15', passCount: 0, priority: 0 },
+        { orderId: 105, patientId: 1005, patientName: '钱七', gender: '男', age: 18, queueNumber: 'A020', status: 'confirmed', isCall: false, callTime: null, visitTime: '2025-11-21 10:30', passCount: 0, priority: 0 },
+    ],
+    waitlist: [
+        { orderId: 106, patientId: 1006, patientName: '孙八', gender: '女', age: 25, queueNumber: 'A010', status: 'confirmed', isCall: false, callTime: null, visitTime: '2025-11-21 10:45', passCount: 1, priority: 1 },
+        { orderId: 107, patientId: 1007, patientName: '周九', gender: '男', age: 30, queueNumber: 'A005', status: 'confirmed', isCall: false, callTime: null, visitTime: '2025-11-21 11:00', passCount: 1, priority: 1 },
     ],
     // 详情数据可以单独提供
     details: {
-        '1001': { id: '1001', name: '张三', gender: '男', age: 35, phone: '13800138000', idCard: '110101199001011234', queueNumber: 'A016', visitTime: '2023-10-27 09:30', department: '内科', doctor: '王医生', symptoms: '头痛，发热3天，伴有咳嗽。', history: '无既往病史', status: 'consulting' },
-        '1002': { id: '1002', name: '李四', gender: '女', age: 28, phone: '13800138001', idCard: '110101199001011235', queueNumber: 'A017', visitTime: '2023-10-27 09:45', department: '内科', doctor: '王医生', symptoms: '腹泻', history: '无', status: 'waiting' },
-        '1003': { id: '1003', name: '王五', gender: '男', age: 45, phone: '13800138002', idCard: '110101199001011236', queueNumber: 'A018', visitTime: '2023-10-27 10:00', department: '内科', doctor: '王医生', symptoms: '皮肤瘙痒', history: '过敏史', status: 'waiting' },
+        '1001': { patientId: 1001, name: '张三', gender: '男', age: 35, phone: '13800138000', idCard: '110101199001011234', queueNumber: 'A016', visitTime: '2025-11-21 09:30', department: '内科', doctor: '王医生', symptoms: '头痛，发热3天，伴有咳嗽。', history: '无既往病史', status: 'confirmed' },
+        '1002': { patientId: 1002, name: '李四', gender: '女', age: 28, phone: '13800138001', idCard: '110101199001011235', queueNumber: 'A017', visitTime: '2025-11-21 09:45', department: '内科', doctor: '王医生', symptoms: '腹泻', history: '无', status: 'confirmed' },
+        '1003': { patientId: 1003, name: '王五', gender: '男', age: 45, phone: '13800138002', idCard: '110101199001011236', queueNumber: 'A018', visitTime: '2025-11-21 10:00', department: '内科', doctor: '王医生', symptoms: '皮肤瘙痒', history: '过敏史', status: 'confirmed' },
     }
 }
 
@@ -54,17 +72,11 @@ export function mockGetInitialData() {
 }
 
 export function mockGetPatientDetail(patientId) {
-    const detail = seed.details[patientId] || seed.queue.find(p => p.id === patientId)
+    const detail = seed.details[patientId]
     if (!detail) return Promise.resolve({ code: 404, message: '未找到患者' })
 
-    // 模拟返回一个完整的详情对象
-    const fullDetail = {
-        ...seed.details['1001'], // 使用一个模板
-        ...detail
-    }
-
     return Promise.resolve({
-        code: 0, message: clone(fullDetail)
+        code: 0, message: clone(detail)
     })
 }
 

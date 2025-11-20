@@ -17,6 +17,18 @@ export const useAuthStore = defineStore("auth", () => {
 
     const isAuthenticated = computed(() => !!token.value)
 
+    // 新增：排班ID管理
+    const scheduleId = ref(uni.getStorageSync("scheduleId") || null)
+
+    function setScheduleId(id) {
+        scheduleId.value = id
+        if (id) {
+            uni.setStorageSync("scheduleId", id)
+        } else {
+            uni.removeStorageSync("scheduleId")
+        }
+    }
+
     async function login(credentials) {
         try {
             const response = await apiLogin(credentials)
@@ -65,6 +77,8 @@ export const useAuthStore = defineStore("auth", () => {
     return {
         token,
         isAuthenticated,
+        scheduleId,
+        setScheduleId,
         login,
         logout,
     }

@@ -77,8 +77,17 @@ const request = (options = {}) => {
                 }
 
                 if (statusCode !== 200) {
-                    const msg = data?.message || `请求错误 [${statusCode}]`
-                    uni.showToast({ title: msg, icon: 'none' })
+                    let msg = `HTTP异常 [${statusCode}]`
+                    if (data) {
+                        if (typeof data === 'string') {
+                            msg = data
+                        } else if (typeof data === 'object') {
+                            // 确保提取的值是字符串
+                            const extracted = data.message || data.error || data.detail || data.msg
+                            msg = typeof extracted === 'string' ? extracted : JSON.stringify(extracted) || msg
+                        }
+                    }
+                    uni.showToast({ title: String(msg), icon: 'none' })
                     return reject(new Error(msg))
                 }
 

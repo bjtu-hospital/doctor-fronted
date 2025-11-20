@@ -59,7 +59,7 @@
           <view
             class="inline-item"
             v-for="item in displayQueue"
-            :key="item.id"
+            :key="item.orderId"
             :class="['status-' + item.status]"
           >
             <text class="num">{{ item.queueNumber }}</text>
@@ -90,7 +90,7 @@
         </view>
         <scroll-view scroll-y class="full-content">
           <view v-if="fullTab==='waiting'" class="list">
-            <view class="item" v-for="it in listWaiting" :key="it.id">
+            <view class="item" v-for="it in listWaiting" :key="it.orderId">
               <text class="num">{{ it.queueNumber }}</text>
               <view class="info">
                 <text class="name">{{ it.name }}</text>
@@ -101,7 +101,7 @@
             <view v-if="!listWaiting.length" class="empty">暂无候诊</view>
           </view>
           <view v-else-if="fullTab==='completed'" class="list">
-            <view v-if="listCompleted.length" class="item" v-for="it in listCompleted" :key="it.id">
+            <view v-if="listCompleted.length" class="item" v-for="it in listCompleted" :key="it.orderId">
               <text class="num">{{ it.queueNumber }}</text>
               <view class="info">
                 <text class="name">{{ it.name }}</text>
@@ -112,7 +112,7 @@
             <view v-else class="empty">暂无已完成</view>
           </view>
           <view v-else class="list">
-            <view v-if="listInvalid.length" class="item" v-for="it in listInvalid" :key="it.id">
+            <view v-if="listInvalid.length" class="item" v-for="it in listInvalid" :key="it.orderId">
               <text class="num">{{ it.queueNumber }}</text>
               <view class="info">
                 <text class="name">{{ it.name }}</text>
@@ -227,9 +227,10 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { onShow, onHide } from '@dcloudio/uni-app'
-import { getConsultationQueue, getPatientDetail, searchPatients } from '@/api/consultation'
+import { onShow, onHide, onLoad } from '@dcloudio/uni-app'
+import { getConsultationQueue, getPatientDetail, searchPatients, callNextPatient, passPatient, completeConsultation, applyAddPatient } from '@/api/consultation'
 import { success, error, warning, loading, hideToast } from '@/utils/toast'
+import { useAuthStore } from '@/store/auth'
 
 // 状态数据
 const stats = ref({
@@ -242,6 +243,7 @@ const currentPatient = ref(null)
 const nextPatient = ref(null)
 const queueList = ref([])
 const detailPatient = ref(null)
+const scheduleId = ref(null)
 
 // 弹窗控制
 const showQueue = ref(false)
@@ -347,50 +349,103 @@ let refreshTimer = null
 
 // --- 业务逻辑层 ---
 
-// 计算统计数据
-const recalcStats = () => {
-  const waiting = queueList.value.filter(it => it.status === 'waiting').length
-  const passed = queueList.value.filter(it => it.status === 'passed').length
-  const completed = queueList.value.filter(it => it.status === 'completed').length
-  const invalid = queueList.value.filter(it => it.status === 'invalid').length
-  
-  stats.value.waitingCount = waiting
-  stats.value.passedCount = passed
-  // 假设初始已完成数量固定，或从API获取
-  stats.value.completedCount = (stats.value.completedCount || 15) + completed 
-  stats.value.totalSource = waiting + passed + completed + invalid + (currentPatient.value ? 1 : 0)
-}
-
-// 计算下一位患者
-const computeNexts = () => {
-  const next = queueList.value.find(it => it.status === 'waiting' || it.status === 'passed') || null
-  nextPatient.value = next ? { id: next.id, name: next.name, queueNumber: next.queueNumber, status: next.status } : null
-}
-
 // 获取队列数据
 const fetchQueueData = async (isAuto = false) => {
+  console.log('========== fetchQueueData 开始 ==========')
+  console.log('scheduleId.value:', scheduleId.value)
+  console.log('isAuto:', isAuto)
+  
+  if (!scheduleId.value) {
+    console.error('❌ scheduleId 为空，无法请求数据')
+    if (!isAuto) error('缺少排班ID')
+    return
+  }
+  
   try {
     if (!isAuto) loading('加载中...')
-    const res = await getConsultationQueue()
+    
+    console.log('🚀 准备请求 /doctor/consultation/queue，参数:', { schedule_id: scheduleId.value })
+    const res = await getConsultationQueue(scheduleId.value)
+    console.log('✅ 接口响应:', res)
+    
     if (res.code === 0) {
       const data = res.message
-      stats.value = data.stats
-      currentPatient.value = data.currentPatient
-      // 把当前患者也加入到 queueList，方便统一管理
-      const allPatients = [...data.queue]
-      if (data.currentPatient && !allPatients.find(p => p.id === data.currentPatient.id)) {
-        allPatients.unshift(data.currentPatient)
-      }
-      queueList.value = allPatients
+      console.log('📦 响应数据:', data)
       
-      recalcStats()
-      computeNexts()
+      // 1. 映射统计数据
+      stats.value = {
+        totalSource: data.stats.totalSlots || 0,
+        waitingCount: data.stats.waitingCount || 0,
+        completedCount: data.stats.completedCount || 0,
+        passedCount: data.stats.passedCount || 0
+      }
+
+      // 2. 映射当前患者（正在就诊的患者 isCall: true）
+      if (data.currentPatient) {
+        currentPatient.value = {
+          orderId: data.currentPatient.orderId,
+          patientId: data.currentPatient.patientId,
+          name: data.currentPatient.patientName,
+          queueNumber: data.currentPatient.queueNumber,
+          gender: data.currentPatient.gender,
+          age: data.currentPatient.age,
+          visitTime: data.currentPatient.visitTime,
+          passCount: data.currentPatient.passCount,
+          status: 'consulting' // 前端状态映射
+        }
+      } else {
+        currentPatient.value = null
+      }
+
+      // 3. 映射下一位患者
+      if (data.nextPatient) {
+        nextPatient.value = {
+          orderId: data.nextPatient.orderId,
+          patientId: data.nextPatient.patientId,
+          name: data.nextPatient.patientName,
+          queueNumber: data.nextPatient.queueNumber,
+          status: 'waiting'
+        }
+      } else {
+        nextPatient.value = null
+      }
+
+      // 4. 映射队列列表（queue + waitlist）
+      queueList.value = []
+      
+      // 将queue和waitlist合并，映射状态
+      const allQueue = [...(data.queue || []), ...(data.waitlist || [])]
+      
+      queueList.value = allQueue.map(item => ({
+        orderId: item.orderId,
+        patientId: item.patientId,
+        name: item.patientName,
+        queueNumber: item.queueNumber,
+        gender: item.gender,
+        age: item.age,
+        visitTime: item.visitTime,
+        passCount: item.passCount,
+        priority: item.priority,
+        // 根据实际状态和passCount判断显示状态
+        status: item.status === 'completed' ? 'completed' 
+              : item.status === 'invalid' ? 'invalid'
+              : item.passCount > 0 ? 'passed'
+              : 'waiting'
+      }))
+      
+      console.log('✅ 数据映射完成')
+      console.log('currentPatient:', currentPatient.value)
+      console.log('nextPatient:', nextPatient.value)
+      console.log('queueList 长度:', queueList.value.length)
+      
       if (!isAuto) hideToast()
+      console.log('========== fetchQueueData 成功结束 ==========')
     } else {
+      console.error('❌ 接口返回错误 code:', res.code, 'message:', res.message)
       if (!isAuto) error(res.message || '获取数据失败')
     }
   } catch (err) {
-    console.error(err)
+    console.error('❌ fetchQueueData 异常:', err)
     if (!isAuto) error('网络异常')
   }
 }
@@ -399,7 +454,7 @@ const fetchQueueData = async (isAuto = false) => {
 const handleViewDetail = async (patient) => {
   loading('获取详情...')
   try {
-    const res = await getPatientDetail(patient.id)
+    const res = await getPatientDetail(patient.patientId) // 使用 patientId
     if (res.code === 0) {
       detailPatient.value = res.message
       showDetail.value = true
@@ -414,33 +469,39 @@ const handleViewDetail = async (patient) => {
 
 // 下一位
 const handleNext = async (patient) => {
+  const content = currentPatient.value 
+    ? `确认完成 ${currentPatient.value.name} 的就诊并呼叫下一位？`
+    : '确认呼叫下一位患者？'
+
   uni.showModal({
     title: '确认',
-    content: `确认完成 ${patient.name} 的就诊并呼叫下一位？`,
+    content: content,
     success: async (res) => {
       if (res.confirm) {
-        // 1. 将当前患者标记为 completed
-        const currentIdx = queueList.value.findIndex(p => p.id === patient.id)
-        if (currentIdx > -1) {
-          queueList.value[currentIdx].status = 'completed'
-        }
-        
-        // 2. 从队列中找到下一位 (waiting or passed)
-        const nextIdx = queueList.value.findIndex(p => p.status === 'waiting' || p.status === 'passed')
-        
-        if (nextIdx > -1) {
-          // 3. 将下一位设为 consulting
-          const nextP = queueList.value[nextIdx]
-          nextP.status = 'consulting'
-          currentPatient.value = nextP
-        } else {
-          currentPatient.value = null
-        }
+        try {
+          loading('处理中...')
+          
+          // 1. 如果有当前患者，先完成就诊
+          if (currentPatient.value) {
+            const completeRes = await completeConsultation(currentPatient.value.patientId, scheduleId.value)
+            if (completeRes.code !== 0) {
+              throw new Error(completeRes.message || '完成就诊失败')
+            }
+          }
 
-        // 4. 重新计算统计和下一位预览
-        recalcStats()
-        computeNexts()
-        success('操作成功')
+          // 2. 呼叫下一位
+          const nextRes = await callNextPatient(scheduleId.value)
+          if (nextRes.code === 0) {
+            success('操作成功')
+            // 刷新数据
+            fetchQueueData()
+          } else {
+            throw new Error(nextRes.message || '呼叫下一位失败')
+          }
+        } catch (err) {
+          console.error(err)
+          error(err.message || '操作失败')
+        }
       }
     }
   })
@@ -454,40 +515,19 @@ const handlePass = async (patient) => {
     confirmColor: '#ff0000',
     success: async (res) => {
       if (res.confirm) {
-        const pIndex = queueList.value.findIndex(p => p.id === patient.id)
-        if (pIndex === -1) return error('未找到患者')
-
-        const targetPatient = queueList.value[pIndex]
-
-        // 使用 passCount 来判断是第几次过号
-        if (targetPatient.passCount && targetPatient.passCount >= 1) {
-          // 只要 passCount >= 1，再次过号就作废
-          targetPatient.status = 'invalid'
-          warning('该患者已作废')
-        } else {
-          // 第一次过号
-          targetPatient.passCount = 1
-          targetPatient.status = 'passed'
-          // 移动到队尾
-          const [moved] = queueList.value.splice(pIndex, 1)
-          queueList.value.push(moved)
-          warning('已过号')
+        try {
+          loading('处理中...')
+          const passRes = await passPatient(patient.orderId) // 使用 orderId
+          if (passRes.code === 0) {
+            success('已过号')
+            fetchQueueData()
+          } else {
+            error(passRes.message || '操作失败')
+          }
+        } catch (err) {
+          console.error(err)
+          error('网络异常')
         }
-
-        // 如果过号的是当前患者，则需要叫下一位
-        if (currentPatient.value && currentPatient.value.id === patient.id) {
-            const nextIdx = queueList.value.findIndex(p => p.status === 'waiting' || p.status === 'passed')
-            if (nextIdx > -1) {
-                const nextP = queueList.value[nextIdx]
-                nextP.status = 'consulting'
-                currentPatient.value = nextP
-            } else {
-                currentPatient.value = null
-            }
-        }
-        
-        recalcStats()
-        computeNexts()
       }
     }
   })
@@ -499,33 +539,28 @@ const handleAddPatient = async (formData) => {
     return error('请先搜索并选择一位患者')
   }
   
-  const nextId = () => String(Math.max(...queueList.value.map(p => Number(p.id))) + 1)
-  const nextQueueNumber = () => 'A' + String(Math.max(...queueList.value.map(p => parseInt(String(p.queueNumber).slice(1)))) + 1).padStart(3, '0')
-
-  const newPatient = {
-    id: nextId(),
-    patient_id: formData.selectedPatient.patient_id,
-    name: formData.selectedPatient.name,
-    age: formData.selectedPatient.age,
-    gender: formData.selectedPatient.gender,
-    queueNumber: nextQueueNumber(),
-    status: 'waiting',
-    passCount: 0,
+  try {
+    loading('提交中...')
+    const data = {
+      schedule_id: scheduleId.value,
+      patient_id: formData.selectedPatient.patient_id,
+      priority: formData.position === 'end' ? 1 : 0, // 0 优先，1 普通
+      reason: formData.reason || '医生申请加号'
+    }
+    
+    const res = await applyAddPatient(data)
+    if (res.code === 0) {
+      success('加号申请已提交')
+      closeAddPatientModal()
+      // 刷新队列数据
+      fetchQueueData()
+    } else {
+      error(res.message || '申请失败')
+    }
+  } catch (err) {
+    console.error(err)
+    error('网络异常')
   }
-
-  if (formData.position === 'next' && currentPatient.value) {
-    const currentIdx = queueList.value.findIndex(p => p.id === currentPatient.value.id)
-    queueList.value.splice(currentIdx + 1, 0, newPatient)
-  } else {
-    queueList.value.push(newPatient)
-  }
-
-  recalcStats()
-  computeNexts()
-  
-  // 先关闭弹窗，再显示提示
-  closeAddPatientModal()
-  success('加号成功')
 }
 
 // 队列状态文案
@@ -540,13 +575,61 @@ const getStatusText = (status) => {
   return map[status] || status
 }
 
+const authStore = useAuthStore()
+
+onLoad((options) => {
+  console.log('接诊页面 onLoad, options:', options)
+  
+  // 优先级：URL参数 > Store
+  if (options.scheduleId) {
+    scheduleId.value = options.scheduleId
+    authStore.setScheduleId(options.scheduleId) // 同步到 store
+    console.log('从 URL 获取 scheduleId:', scheduleId.value)
+  } else if (authStore.scheduleId) {
+    scheduleId.value = authStore.scheduleId
+    console.log('从 Store 获取 scheduleId:', scheduleId.value)
+  } else {
+    console.warn('没有 scheduleId，请先在工作台签到')
+  }
+})
+
 onShow(() => {
-  fetchQueueData()
-  // 开启自动刷新 (每30秒)
-  refreshTimer = setInterval(() => {
-    // 真实场景下这里应该是 fetchQueueData(true)，但因为现在是纯前端逻辑，所以注释掉
-    // fetchQueueData(true) 
-  }, 30000)
+  console.log('接诊页面 onShow, 当前 scheduleId:', scheduleId.value)
+  
+  // 确保使用 Store 中最新的 scheduleId
+  if (authStore.scheduleId && !scheduleId.value) {
+    scheduleId.value = authStore.scheduleId
+    console.log('onShow 从 Store 同步 scheduleId:', scheduleId.value)
+  }
+  
+  // 只有有 scheduleId 时才请求数据
+  if (scheduleId.value) {
+    console.log('onShow 中准备调用 fetchQueueData')
+    fetchQueueData()
+    // 开启自动刷新 (每30秒)
+    if (!refreshTimer) {
+      refreshTimer = setInterval(() => {
+        fetchQueueData(true) 
+      }, 30000)
+    }
+  } else {
+    console.warn('onShow: 没有 scheduleId，无法获取队列数据')
+    // 提示用户先签到
+    uni.showModal({
+      title: '提示',
+      content: '请先在工作台签到后再进入接诊页面',
+      showCancel: true,
+      cancelText: '留在此页',
+      confirmText: '去签到',
+      success: (res) => {
+        if (res.confirm) {
+          uni.switchTab({
+            url: '/pages/workbench/workbench'
+          })
+        }
+      }
+    })
+  }
 })
 
 onHide(() => {

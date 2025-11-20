@@ -67,6 +67,7 @@ import ShortcutsSection from './components/ShortcutsSection.vue'
 import RemindersSection from './components/RemindersSection.vue'
 import RecentRecordsSection from './components/RecentRecordsSection.vue'
 import { getDashboardData, checkin, checkout } from '@/api/workbench'
+import { useAuthStore } from '@/store/auth'
 
 export default {
   name: 'WorkbenchPage',
@@ -184,6 +185,15 @@ export default {
           this.reminders = data.reminders
           this.recentRecords = data.recentRecords
           this.updateCountdown()
+
+          // 同步排班ID到全局Store
+          const authStore = useAuthStore()
+          if (data.shiftStatus && data.shiftStatus.currentShift && data.shiftStatus.currentShift.id) {
+            authStore.setScheduleId(data.shiftStatus.currentShift.id)
+          } else {
+            // 如果没有当前排班（如未签到），可以考虑清除或保留上次的
+            // authStore.setScheduleId(null) 
+          }
         } else {
           uni.showToast({
             title: '数据加载失败',
@@ -249,6 +259,8 @@ export default {
             title: data?.message || '签到成功',
             icon: 'success'
           })
+          // 保存 scheduleId 到 store，供接诊页面使用
+          this.authStore.setScheduleId(shiftId)
           // 更新场景为已签到
           this.currentScenario = 'checkedIn'
           // 刷新数据
