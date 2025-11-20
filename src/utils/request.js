@@ -100,7 +100,7 @@ const request = (options = {}) => {
                     } else if (data.code === 105 || data.code === 401) {
                         // 业务层面的 Token 过期
                         handleAuthError(data.message || '登录已过期')
-                        reject(new Error(data.message))
+                        reject(new Error(normalizeMsg(data.message)))
                     } else {
                         // 其他业务错误
                         const msg = data.message || '请求失败'
