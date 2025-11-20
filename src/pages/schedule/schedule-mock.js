@@ -5,141 +5,116 @@
 
 /**
  * 生成模拟排班数据
- * @param {string} startDate - 开始日期 YYYY-MM-DD
- * @param {string} endDate - 结束日期 YYYY-MM-DD
+ * @param {string} doctorId - 医生ID
+ * @param {number} weekOffset - 周偏移量（0=当前周，1=下一周，-1=上一周）
  * @returns {Promise} 返回排班数据
  */
-export function mockGetSchedules(startDate, endDate) {
-  const start = new Date(startDate)
+export function mockGetSchedules(doctorId, weekOffset = 0) {
+  const today = new Date()
+  const startOfWeek = new Date(today)
+  const day = today.getDay() || 7
+  startOfWeek.setDate(today.getDate() - day + 1 + weekOffset * 7)
+  
   const schedules = []
-  const weekNames = ['日', '一', '二', '三', '四', '五', '六']
-
+  const clinics = [
+    { id: 56, name: '心血管科门诊', type: 0, slotType: '专家', price: 100.0, totalSlots: 15 },
+    { id: 55, name: '心血管内科门诊（国疗）', type: 1, slotType: '专家', price: 2000.0, totalSlots: 8 },
+    { id: 57, name: '心血管科门诊（特需）', type: 2, slotType: '特需', price: 500.0, totalSlots: 15 }
+  ]
+  
+  const timeSections = ['上午', '下午', '晚上']
+  
+  let scheduleId = 5667
+  
   // 生成7天的数据
   for (let i = 0; i < 7; i++) {
-    const currentDate = new Date(start)
-    currentDate.setDate(start.getDate() + i)
+    const currentDate = new Date(startOfWeek)
+    currentDate.setDate(startOfWeek.getDate() + i)
     
     const year = currentDate.getFullYear()
     const month = String(currentDate.getMonth() + 1).padStart(2, '0')
-    const day = String(currentDate.getDate()).padStart(2, '0')
-    const dateStr = `${year}-${month}-${day}`
-    const dayOfWeek = weekNames[currentDate.getDay()]
-
-    const shifts = []
+    const dayNum = String(currentDate.getDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${dayNum}`
+    const weekDay = currentDate.getDay() || 7
     
-    // 移除随机性，确保周一至周五都有排班
-    if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+    // 周一至周五排班
+    if (weekDay >= 1 && weekDay <= 5) {
       // 上午班次 - 每天都有
-      shifts.push({
-        id: i * 10 + 1,
-        name: '上午门诊',
-        period: 'morning',
-        startTime: '08:00',
-        endTime: '11:30',
-        location: '门诊 3 诊室',
-        department: '心内科',
-        status: 'scheduled',
-        capacity: 30,
-        registered: 15 + (i % 5), // 伪随机但固定
-        consultationCount: 5 + (i % 3)
+      const morningClinic = clinics[i % 3]
+      schedules.push({
+        schedule_id: scheduleId++,
+        doctor_id: parseInt(doctorId) || 6,
+        doctor_name: '高炜',
+        clinic_id: morningClinic.id,
+        clinic_name: morningClinic.name,
+        clinic_type: morningClinic.type,
+        date: dateStr,
+        week_day: weekDay,
+        time_section: '上午',
+        slot_type: morningClinic.slotType,
+        total_slots: morningClinic.totalSlots,
+        remaining_slots: morningClinic.totalSlots - (i * 2),
+        status: '正常',
+        price: morningClinic.price
       })
       
       // 下午班次 - 周三下午休息，其他时间有
-      if (currentDate.getDay() !== 3) {
-        shifts.push({
-          id: i * 10 + 2,
-          name: '下午门诊',
-          period: 'afternoon',
-          startTime: '14:00',
-          endTime: '17:30',
-          location: '门诊 3 诊室',
-          department: '心内科',
-          status: 'scheduled',
-          capacity: 25,
-          registered: 10 + (i % 4),
-          consultationCount: 0
+      if (weekDay !== 3) {
+        const afternoonClinic = clinics[(i + 1) % 3]
+        schedules.push({
+          schedule_id: scheduleId++,
+          doctor_id: parseInt(doctorId) || 6,
+          doctor_name: '高炜',
+          clinic_id: afternoonClinic.id,
+          clinic_name: afternoonClinic.name,
+          clinic_type: afternoonClinic.type,
+          date: dateStr,
+          week_day: weekDay,
+          time_section: '下午',
+          slot_type: afternoonClinic.slotType,
+          total_slots: afternoonClinic.totalSlots,
+          remaining_slots: afternoonClinic.totalSlots - (i + 3),
+          status: '正常',
+          price: afternoonClinic.price
         })
       }
-
+      
       // 晚上班次 - 周二、周四有
-      if (currentDate.getDay() === 2 || currentDate.getDay() === 4) {
-        shifts.push({
-          id: i * 10 + 3,
-          name: '晚间急诊',
-          period: 'night',
-          startTime: '19:00',
-          endTime: '22:00',
-          location: '急诊 1 诊室',
-          department: '急诊科',
-          status: 'scheduled',
-          capacity: 20,
-          registered: 5 + (i % 3),
-          consultationCount: 0
+      if (weekDay === 2 || weekDay === 4) {
+        schedules.push({
+          schedule_id: scheduleId++,
+          doctor_id: parseInt(doctorId) || 6,
+          doctor_name: '高炜',
+          clinic_id: 58,
+          clinic_name: '急诊科',
+          clinic_type: 0,
+          date: dateStr,
+          week_day: weekDay,
+          time_section: '晚上',
+          slot_type: '普通',
+          total_slots: 10,
+          remaining_slots: 8,
+          status: '正常',
+          price: 50.0
         })
       }
     }
-
-    schedules.push({
-      id: i + 1,
-      date: dateStr,
-      dayOfWeek: dayOfWeek,
-      shifts: shifts
-    })
   }
 
   return Promise.resolve({
     code: 0,
     message: {
-      startDate,
-      endDate,
-      doctorId: '10001',
       schedules
     }
   })
 }
 
 /**
- * 获取当前周的排班数据
- */
-export function mockGetCurrentWeekSchedules() {
-  const today = new Date()
-  const startOfWeek = new Date(today)
-  // 如果今天是周日(0)，则减去6天回到周一；否则减去 day-1
-  const day = today.getDay() || 7
-  startOfWeek.setDate(today.getDate() - day + 1)
-  
-  const endOfWeek = new Date(startOfWeek)
-  endOfWeek.setDate(startOfWeek.getDate() + 6)
-
-  const formatDate = (date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
-  return mockGetSchedules(formatDate(startOfWeek), formatDate(endOfWeek))
-}
-
-/**
- * 获取指定周的排班数据
+ * 获取指定周的排班数据（别名函数，向后兼容）
+ * @param {string} doctorId - 医生ID
  * @param {number} weekOffset - 周偏移量（0=当前周，1=下一周，-1=上一周）
+ * @returns {Promise} 返回排班数据
  */
-export function mockGetWeekSchedules(weekOffset = 0) {
-  const today = new Date()
-  const startOfWeek = new Date(today)
-  const day = today.getDay() || 7
-  startOfWeek.setDate(today.getDate() - day + 1 + weekOffset * 7)
-  
-  const endOfWeek = new Date(startOfWeek)
-  endOfWeek.setDate(startOfWeek.getDate() + 6)
-
-  const formatDate = (date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
-  return mockGetSchedules(formatDate(startOfWeek), formatDate(endOfWeek))
+export function mockGetWeekSchedules(doctorId, weekOffset = 0) {
+  return mockGetSchedules(doctorId, weekOffset)
 }

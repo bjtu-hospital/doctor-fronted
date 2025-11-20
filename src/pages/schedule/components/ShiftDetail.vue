@@ -10,24 +10,32 @@
         <view class="detail-section">
           <text class="section-title">基本信息</text>
           <view class="detail-item">
-            <view class="label">班次名称</view>
-            <view class="value">{{ shift.name }}</view>
+            <view class="label">诊室名称</view>
+            <view class="value">{{ shift.clinic_name }}</view>
           </view>
           <view class="detail-item">
-            <view class="label">班次时间</view>
-            <view class="value">{{ shift.startTime }} - {{ shift.endTime }}</view>
+            <view class="label">日期</view>
+            <view class="value">{{ shift.date }} 星期{{ getWeekDayText(shift.week_day) }}</view>
           </view>
           <view class="detail-item">
-            <view class="label">值班地点</view>
-            <view class="value">{{ shift.location }}</view>
+            <view class="label">时段</view>
+            <view class="value">{{ shift.time_section }}</view>
           </view>
           <view class="detail-item">
-            <view class="label">科室</view>
-            <view class="value">{{ shift.department }}</view>
+            <view class="label">号源类型</view>
+            <view class="value">{{ shift.slot_type }}</view>
           </view>
           <view class="detail-item">
-            <view class="label">班次状态</view>
-            <view class="value" :class="'status-' + shift.status">{{ getStatusText(shift.status) }}</view>
+            <view class="label">诊室类型</view>
+            <view class="value">{{ getClinicTypeText(shift.clinic_type) }}</view>
+          </view>
+          <view class="detail-item">
+            <view class="label">挂号费用</view>
+            <view class="value">￥{{ shift.price.toFixed(2) }}</view>
+          </view>
+          <view class="detail-item">
+            <view class="label">排班状态</view>
+            <view class="value" :class="'status-' + shift.status">{{ shift.status }}</view>
           </view>
         </view>
 
@@ -35,33 +43,33 @@
           <text class="section-title">就诊统计</text>
           <view class="stats-grid">
             <view class="stat-card">
-              <text class="stat-number">{{ shift.capacity }}</text>
+              <text class="stat-number">{{ shift.total_slots }}</text>
               <text class="stat-label">总号源</text>
             </view>
             <view class="stat-card">
-              <text class="stat-number">{{ shift.registered }}</text>
+              <text class="stat-number">{{ shift.total_slots - shift.remaining_slots }}</text>
               <text class="stat-label">已挂号</text>
             </view>
             <view class="stat-card">
-              <text class="stat-number">{{ shift.consultationCount }}</text>
-              <text class="stat-label">已就诊</text>
+              <text class="stat-number">{{ shift.remaining_slots }}</text>
+              <text class="stat-label">剩余号源</text>
             </view>
             <view class="stat-card">
-              <text class="stat-number">{{ shift.capacity - shift.registered }}</text>
-              <text class="stat-label">剩余号源</text>
+              <text class="stat-number">{{ getRegistrationRate() }}%</text>
+              <text class="stat-label">挂号率</text>
             </view>
           </view>
         </view>
 
         <view class="detail-section">
-          <text class="section-title">统计信息</text>
+          <text class="section-title">医生信息</text>
           <view class="detail-item">
-            <view class="label">挂号率</view>
-            <view class="value">{{ getRegistrationRate() }}%</view>
+            <view class="label">医生姓名</view>
+            <view class="value">{{ shift.doctor_name }}</view>
           </view>
           <view class="detail-item">
-            <view class="label">就诊率</view>
-            <view class="value">{{ getConsultationRate() }}%</view>
+            <view class="label">医生ID</view>
+            <view class="value">{{ shift.doctor_id }}</view>
           </view>
         </view>
       </scroll-view>
@@ -87,21 +95,30 @@ export default {
     }
   },
   methods: {
-    getStatusText(status) {
-      const statusMap = {
-        scheduled: '排班中',
-        completed: '已完成',
-        cancelled: '已取消'
+    getWeekDayText(weekDay) {
+      const weekDayMap = {
+        1: '一',
+        2: '二',
+        3: '三',
+        4: '四',
+        5: '五',
+        6: '六',
+        7: '日'
       }
-      return statusMap[status] || '未知'
+      return weekDayMap[weekDay] || ''
+    },
+    getClinicTypeText(clinicType) {
+      const typeMap = {
+        0: '普通门诊',
+        1: '国疗门诊',
+        2: '特需门诊'
+      }
+      return typeMap[clinicType] || '未知'
     },
     getRegistrationRate() {
-      if (this.shift.capacity === 0) return 0
-      return Math.round((this.shift.registered / this.shift.capacity) * 100)
-    },
-    getConsultationRate() {
-      if (this.shift.registered === 0) return 0
-      return Math.round((this.shift.consultationCount / this.shift.registered) * 100)
+      if (!this.shift.total_slots || this.shift.total_slots === 0) return 0
+      const registered = this.shift.total_slots - this.shift.remaining_slots
+      return Math.round((registered / this.shift.total_slots) * 100)
     },
     handleClose() {
       this.$emit('close')
@@ -207,15 +224,15 @@ export default {
     text-align: left;
     padding-left: 20rpx;
 
-    &.status-scheduled {
+    &.status-正常 {
       color: #87cefa;
     }
 
-    &.status-completed {
-      color: #4CAF50;
+    &.status-暂停 {
+      color: #faad14;
     }
 
-    &.status-cancelled {
+    &.status-取消 {
       color: #ff5252;
     }
   }

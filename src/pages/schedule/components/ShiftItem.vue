@@ -1,10 +1,11 @@
 <template>
   <view class="shift-cell" :class="[colorClass]" @tap="handleClick">
     <view class="cell-content">
-      <text class="shift-name">{{ shift.name }}</text>
-      <text class="shift-location">@{{ shift.location }}</text>
-      <view class="shift-status-badge" v-if="shift.status !== 'scheduled'">
-        <text class="status-text">{{ getStatusText(shift.status) }}</text>
+      <text class="shift-name">{{ shift.clinic_name }}</text>
+      <text class="shift-time">{{ shift.time_section }}</text>
+      <text class="shift-slot-type">{{ shift.slot_type }}</text>
+      <view class="shift-status-badge" v-if="shift.status !== '正常'">
+        <text class="status-text">{{ shift.status }}</text>
       </view>
     </view>
   </view>
@@ -21,26 +22,24 @@ export default {
   },
   computed: {
     colorClass() {
-      // 根据科室或ID生成不同的柔和背景色
-      const colors = ['bg-blue', 'bg-pink', 'bg-purple', 'bg-green', 'bg-orange']
-      const index = (this.shift.id || 0) % colors.length
+      // 根据诊室类型生成不同的柔和背景色
+      // clinic_type: 0:普通, 1:国疗, 2:特需
+      if (this.shift.status === '暂停' || this.shift.status === '取消') {
+        return 'bg-gray'
+      }
       
-      if (this.shift.status === 'completed') return 'bg-gray'
-      if (this.shift.status === 'cancelled') return 'bg-red-light'
+      const typeColors = {
+        0: 'bg-blue',    // 普通
+        1: 'bg-purple',  // 国疗
+        2: 'bg-orange'   // 特需
+      }
       
-      return colors[index]
+      return typeColors[this.shift.clinic_type] || 'bg-blue'
     }
   },
   methods: {
     handleClick() {
       this.$emit('shift-click', this.shift)
-    },
-    getStatusText(status) {
-      const map = {
-        completed: '已完',
-        cancelled: '取消'
-      }
-      return map[status] || ''
     }
   }
 }
@@ -89,13 +88,21 @@ export default {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
 }
 
-.shift-location {
+.shift-time {
   font-size: 18rpx;
   opacity: 0.8;
   margin-top: 2rpx;
+}
+
+.shift-slot-type {
+  font-size: 18rpx;
+  opacity: 0.9;
+  margin-top: 2rpx;
+  font-weight: 500;
 }
 
 .shift-status-badge {

@@ -105,7 +105,7 @@ export default {
   data() {
     return {
       doctorInfo: { id: null, name: '' },
-      schedules: [],
+      schedules: [], // 直接存储 API 返回的 schedules 数组
       currentDate: this.getTodayDate(), // 周一日期
       loading: false,
       detailVisible: false,
@@ -179,10 +179,11 @@ export default {
       this.loading = true
       try {
         const offset = this.getWeekOffset()
-        const response = await getWeekSchedules(this.doctorInfo.id || '10001', offset)
+        const response = await getWeekSchedules(this.doctorInfo.id || '6', offset)
         
         if (response && response.code === 0) {
-          this.schedules = response.message.schedules
+          // 直接使用 API 返回的 schedules 数组
+          this.schedules = response.message.schedules || []
         }
       } catch (error) {
         console.error(error)
@@ -194,18 +195,27 @@ export default {
     handleWeekChange(newDate) {
       this.currentDate = newDate
       this.initWeek()
-      // 重新加载数据，实际应传入 newDate
+      // 重新加载数据
       this.loadSchedules()
     },
 
     getShift(dayIndex, period) {
       const targetDate = this.weekDates[dayIndex]
-      // 在 schedules 中查找匹配日期和时段的班次
-      // 注意：Mock数据结构是 { date, shifts: [] }
-      const daySchedule = this.schedules.find(s => s.date === targetDate)
-      if (!daySchedule) return null
+      if (!targetDate || !this.schedules) return null
       
-      return daySchedule.shifts.find(s => s.period === period)
+      // 将时段映射为中文
+      const periodMap = {
+        'morning': '上午',
+        'afternoon': '下午',
+        'night': '晚上'
+      }
+      const timeSectionChinese = periodMap[period]
+      
+      // 在 schedules 中查找匹配日期和时段的班次
+      // 新格式中，schedules 是一个数组，每个元素就是一个排班
+      return this.schedules.find(s => 
+        s.date === targetDate && s.time_section === timeSectionChinese
+      ) || null
     },
 
     handleShiftClick(shift) {

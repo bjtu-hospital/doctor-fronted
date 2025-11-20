@@ -7,56 +7,39 @@ const USE_MOCK = false
 /**
  * 获取医生排班信息
  * @param {string} doctorId - 医生ID
- * @param {string} startDate - 开始日期 YYYY-MM-DD
- * @param {string} endDate - 结束日期 YYYY-MM-DD
- * @returns {code: 0, message: {schedules: array}}
- */
-export function getSchedules(doctorId, startDate, endDate) {
-  if (USE_MOCK) {
-    return mockGetSchedules(startDate, endDate)
-  }
-  return get('/doctor/schedules', {
-    start_date: startDate,
-    end_date: endDate
-  })
-}
-
-/**
- * 获取历史排班
- * @param {string} doctorId - 医生ID
- * @param {number} page - 页码
- * @param {number} pageSize - 每页数量
- */
-export function getHistorySchedules(doctorId, page = 1, pageSize = 10) {
-  if (USE_MOCK) {
-    // 简单的 Mock 实现，返回空列表或模拟数据
-    return Promise.resolve({
-      code: 0,
-      message: {
-        total: 0,
-        list: []
-      }
-    })
-  }
-  return get('/doctor/schedules/history', {
-    page,
-    page_size: pageSize
-  })
-}
-
-/**
- * 获取指定周的排班
- * @param {string} doctorId - 医生ID
  * @param {number} weekOffset - 周偏移量（0=当前周，1=下一周，-1=上一周）
+ * @returns {Promise} 返回格式: {
+ *   code: 0,
+ *   message: {
+ *     schedules: [{
+ *       schedule_id: number,        // 排班ID
+ *       doctor_id: number,          // 医生ID
+ *       doctor_name: string,        // 医生姓名
+ *       clinic_id: number,          // 诊室ID
+ *       clinic_name: string,        // 诊室名称
+ *       clinic_type: number,        // 诊室类型 (0:普通, 1:国疗, 2:特需)
+ *       date: string,               // 日期 YYYY-MM-DD
+ *       week_day: number,           // 星期几 (1-7)
+ *       time_section: string,       // 时段 (上午/下午/晚上)
+ *       slot_type: string,          // 号源类型 (专家/特需/普通)
+ *       total_slots: number,        // 总号源数
+ *       remaining_slots: number,    // 剩余号源数
+ *       status: string,             // 状态 (正常/暂停/取消)
+ *       price: number               // 挂号费用
+ *     }]
+ *   }
+ * }
  */
-export function getWeekSchedules(doctorId, weekOffset = 0) {
+export function getSchedules(doctorId, weekOffset = 0) {
   if (USE_MOCK) {
-    return mockGetWeekSchedules(weekOffset)
+    return mockGetSchedules(doctorId, weekOffset)
   }
   
+  // 计算指定周的开始和结束日期
   const today = new Date()
   const startOfWeek = new Date(today)
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1 + weekOffset * 7)
+  const day = today.getDay() || 7 // 周日为7
+  startOfWeek.setDate(today.getDate() - day + 1 + weekOffset * 7)
   
   const endOfWeek = new Date(startOfWeek)
   endOfWeek.setDate(startOfWeek.getDate() + 6)
@@ -68,5 +51,21 @@ export function getWeekSchedules(doctorId, weekOffset = 0) {
     return `${year}-${month}-${day}`
   }
 
-  return getSchedules(doctorId, formatDate(startOfWeek), formatDate(endOfWeek))
+  return get('/doctor/schedules', {
+    start_date: formatDate(startOfWeek),
+    end_date: formatDate(endOfWeek)
+  })
+}
+
+/**
+ * 获取指定周的排班（别名函数）
+ * @param {string} doctorId - 医生ID
+ * @param {number} weekOffset - 周偏移量（0=当前周，1=下一周，-1=上一周）
+ * @returns {Promise} 返回排班数据，格式同 getSchedules
+ */
+export function getWeekSchedules(doctorId, weekOffset = 0) {
+  if (USE_MOCK) {
+    return mockGetWeekSchedules(doctorId, weekOffset)
+  }
+  return getSchedules(doctorId, weekOffset)
 }
