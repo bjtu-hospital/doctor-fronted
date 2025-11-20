@@ -19,8 +19,21 @@ console.log('当前 API Base URL:', BASE_URL)
 const TIMEOUT = 10000
 
 // 2. 辅助函数：处理认证失效
+const normalizeMsg = (raw, fallback = '请求失败') => {
+    if (!raw) return fallback
+    if (typeof raw === 'string') return raw
+    if (typeof raw === 'object') {
+        if (typeof raw.message === 'string') return raw.message
+        if (typeof raw.msg === 'string') return raw.msg
+        if (typeof raw.error === 'string') return raw.error
+        try { return JSON.stringify(raw) } catch { return fallback }
+    }
+    return String(raw)
+}
+
 const handleAuthError = (msg = '认证失效，请重新登录') => {
-    uni.showToast({ title: msg, icon: 'none' })
+    const title = normalizeMsg(msg, '认证失效，请重新登录')
+    uni.showToast({ title, icon: 'none' })
     uni.removeStorageSync('token')
     setTimeout(() => {
         uni.reLaunch({ url: '/pages/login/login' })
@@ -66,7 +79,7 @@ const request = (options = {}) => {
                 }
 
                 if (statusCode !== 200) {
-                    const msg = data?.message || `请求失败 [${statusCode}]`
+                    const msg = normalizeMsg(data?.message, `请求失败 [${statusCode}]`)
                     uni.showToast({ title: msg, icon: 'none' })
                     return reject(new Error(msg))
                 }
@@ -77,12 +90,10 @@ const request = (options = {}) => {
                         // 成功
                         resolve(data)
                     } else if (data.code === 105) {
-                        // Token 过期等
                         handleAuthError(data.message || '登录已过期')
-                        reject(new Error(data.message))
+                        reject(new Error(normalizeMsg(data.message)))
                     } else {
-                        // 其他业务错误
-                        const msg = data.message || '业务处理失败'
+                        const msg = normalizeMsg(data.message, '业务处理失败')
                         uni.showToast({ title: msg, icon: 'none' })
                         reject(new Error(msg))
                     }

@@ -68,7 +68,7 @@
 </template>
 
 <script>
-import { login } from '@/api/auth'
+import { login, getUserInfo } from '@/api/auth'
 
 export default {
   data() {
@@ -107,32 +107,39 @@ export default {
         identifier: this.form.username,
         password: this.form.password,
       })
-        .then((res) => {
+        .then(async (res) => {
           this.loading = false
           console.log('登录成功响应:', res)
-          
+
+          // 后端当前返回结构：{ code:0, message: 'JWT_TOKEN_STRING' }
+          const rawToken = res?.data?.token || (typeof res?.message === 'string' ? res.message : null)
+          if (rawToken) {
+            uni.setStorageSync('token', rawToken)
+          } else {
+            console.warn('未从登录响应中解析到 token')
+          }
+
+          // 可选：获取用户信息填充 doctorInfo（依赖后端是否实现该接口）
+          try {
+            const userInfoRes = await getUserInfo()
+            if (userInfoRes?.code === 0 && userInfoRes?.message?.doctor) {
+              uni.setStorageSync('doctorInfo', userInfoRes.message.doctor)
+            }
+          } catch (e) {
+            console.warn('获取用户信息失败（可忽略）:', e)
+          }
+
           uni.showToast({
             title: '登录成功',
             icon: 'success',
-            duration: 1500,
+            duration: 1200,
           })
-          
-          // 保存用户信息到本地存储
-          if (res.data) {
-            uni.setStorageSync('doctorInfo', res.data.doctor)
-            uni.setStorageSync('token', res.data.token)
-          }
-          
-          // 登录成功后 1.5 秒跳转到工作台首页
+
+          // 登录成功后延迟跳转，确保 token 已写入
           setTimeout(() => {
             console.log('准备跳转到工作台...')
-            
-            // 在 H5 模式下，路由格式为: /#/pages/路径
-            // 在小程序模式下，路由格式为: /pages/路径
             const platform = uni.getSystemInfoSync().platform
             console.log('当前平台:', platform)
-            
-            // 使用 pages.json 中定义的页面路径，并保证以 '/' 开头
             const target = '/pages/workbench/workbench'
             console.log('使用最终跳转目标:', target)
             uni.reLaunch({
@@ -142,13 +149,10 @@ export default {
               },
               fail: (err) => {
                 console.error('❌ 跳转失败:', err)
-                uni.showToast({
-                  title: '页面跳转失败',
-                  icon: 'none',
-                })
+                uni.showToast({ title: '页面跳转失败', icon: 'none' })
               }
             })
-          }, 1500)
+          }, 800)
         })
         .catch((err) => {
           this.loading = false
