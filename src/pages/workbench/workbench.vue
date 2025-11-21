@@ -69,8 +69,7 @@ import DashboardSection from './components/DashboardSection.vue'
 import ShortcutsSection from './components/ShortcutsSection.vue'
 import RemindersSection from './components/RemindersSection.vue'
 import RecentRecordsSection from './components/RecentRecordsSection.vue'
-import { getDashboardData, checkin, checkout } from '@/api/workbench'
-import { useAuthStore } from '@/store/auth'
+import { getDashboardData, checkin, checkout, getShifts, getConsultationStats, getRecentConsultations } from '@/api/workbench'
 
 export default {
   name: 'WorkbenchPage',
@@ -244,14 +243,11 @@ export default {
           this.reminders = data.reminders
           this.recentRecords = data.recentRecords
           this.updateCountdown()
-
-          // 同步排班ID到全局Store
-          const authStore = useAuthStore()
-          if (data.shiftStatus && data.shiftStatus.currentShift && data.shiftStatus.currentShift.id) {
-            authStore.setScheduleId(data.shiftStatus.currentShift.id)
+          // 仪表盘成功后再拉取其余三个接口（需要 doctorId ）
+          if (this.doctorInfo?.id) {
+            this.loadAdditionalData(this.doctorInfo.id)
           } else {
-            // 如果没有当前排班（如未签到），可以考虑清除或保留上次的
-            // authStore.setScheduleId(null) 
+            console.warn('[Workbench] 未获取到 doctorId，跳过附加接口调用')
           }
         } else {
           uni.showToast({
@@ -453,10 +449,6 @@ export default {
             title: data?.message || '签到成功',
             icon: 'success'
           })
-          // 保存 scheduleId 到 store，供接诊页面使用
-          this.authStore.setScheduleId(shiftId)
-          // 更新场景为已签到
-          this.currentScenario = 'checkedIn'
           // 刷新数据
           setTimeout(() => {
             this.loadDashboardData()
