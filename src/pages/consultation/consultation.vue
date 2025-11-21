@@ -42,6 +42,10 @@
       </view>
       <view v-else class="empty-block">
         <text class="empty-text">当前无就诊患者</text>
+        <view class="empty-actions" v-if="nextPatient">
+          <text class="next-tip">下一位：{{ nextPatient.name }}（{{ nextPatient.queueNumber }}）</text>
+          <button class="btn btn-call-next" @click="handleCallNext">呼叫下一位</button>
+        </view>
       </view>
       
       <!-- 操作入口：申请加号按钮放在队列上方 -->
@@ -50,25 +54,28 @@
       </view>
 
       <!-- 页面内队列预览列表（只显示候诊，过号放队尾，不显示就诊中） -->
-      <view class="inline-queue" v-if="displayQueue && displayQueue.length">
+      <view class="inline-queue">
         <view class="inline-header">
           <text class="title">候诊队列</text>
           <text class="link" @click.stop="showQueue = true">查看全部 ></text>
         </view>
         <view class="inline-list">
-          <view
-            class="inline-item"
-            v-for="item in displayQueue"
-            :key="item.orderId"
-            :class="['status-' + item.status]"
-          >
-            <text class="num">{{ item.queueNumber }}</text>
-            <view class="info">
-              <text class="name">{{ item.name }}</text>
-              <text class="desc">{{ item.gender }}｜{{ item.age }}岁</text>
+          <template v-if="displayQueue && displayQueue.length">
+            <view
+              class="inline-item"
+              v-for="item in displayQueue"
+              :key="item.orderId"
+              :class="['status-' + item.status]"
+            >
+              <text class="num">{{ item.queueNumber }}</text>
+              <view class="info">
+                <text class="name">{{ item.name }}</text>
+                <text class="desc">{{ item.gender }}｜{{ item.age }}岁</text>
+              </view>
+              <text :class="['tag', 'tag-' + item.status]">{{ getStatusText(item.status) }}</text>
             </view>
-            <text :class="['tag', 'tag-' + item.status]">{{ getStatusText(item.status) }}</text>
-          </view>
+          </template>
+          <view v-else class="empty-text">暂无候诊患者</view>
         </view>
       </view>
     </view>
@@ -410,11 +417,16 @@ const fetchQueueData = async (isAuto = false) => {
         nextPatient.value = null
       }
 
-      // 4. 映射队列列表（queue + waitlist）
+      // 4. 映射队列列表（queue + waitlist + completedList + invalidList）
       queueList.value = []
       
-      // 将queue和waitlist合并，映射状态
-      const allQueue = [...(data.queue || []), ...(data.waitlist || [])]
+      // 将所有列表合并，映射状态
+      const allQueue = [
+        ...(data.queue || []), 
+        ...(data.waitlist || []),
+        ...(data.completedList || []),
+        ...(data.invalidList || [])
+      ]
       
       queueList.value = allQueue.map(item => ({
         orderId: item.orderId,
@@ -481,15 +493,7 @@ const handleNext = async (patient) => {
         try {
           loading('处理中...')
           
-          // 1. 如果有当前患者，先完成就诊
-          if (currentPatient.value) {
-            const completeRes = await completeConsultation(currentPatient.value.patientId, scheduleId.value)
-            if (completeRes.code !== 0) {
-              throw new Error(completeRes.message || '完成就诊失败')
-            }
-          }
-
-          // 2. 呼叫下一位
+          // 1. 呼叫下一位 (后端会自动处理当前患者的完成状态)
           const nextRes = await callNextPatient(scheduleId.value)
           if (nextRes.code === 0) {
             success('操作成功')
@@ -501,6 +505,35 @@ const handleNext = async (patient) => {
         } catch (err) {
           console.error(err)
           error(err.message || '操作失败')
+        }
+      }
+    }
+  })
+}
+
+// 呼叫下一位（无当前患者时使用）
+const handleCallNext = async () => {
+  if (!nextPatient.value) {
+    return warning('暂无候诊患者')
+  }
+
+  uni.showModal({
+    title: '确认呼叫',
+    content: `确认呼叫 ${nextPatient.value.name}（${nextPatient.value.queueNumber}）？`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          loading('呼叫中...')
+          const nextRes = await callNextPatient(scheduleId.value)
+          if (nextRes.code === 0) {
+            success('呼叫成功')
+            fetchQueueData()
+          } else {
+            error(nextRes.message || '呼叫失败')
+          }
+        } catch (err) {
+          console.error(err)
+          error('网络异常')
         }
       }
     }
@@ -519,7 +552,7 @@ const handlePass = async (patient) => {
           loading('处理中...')
           const passRes = await passPatient(patient.orderId) // 使用 orderId
           if (passRes.code === 0) {
-            success('已过号')
+            success(passRes.message || '操作成功')
             fetchQueueData()
           } else {
             error(passRes.message || '操作失败')
@@ -580,7 +613,7 @@ const authStore = useAuthStore()
 onLoad((options) => {
   console.log('接诊页面 onLoad, options:', options)
   
-  // 优先级：URL参数 > Store
+  // 优先级：URL参数 > Store > 默认值（开发测试）
   if (options.scheduleId) {
     scheduleId.value = options.scheduleId
     authStore.setScheduleId(options.scheduleId) // 同步到 store
@@ -589,7 +622,9 @@ onLoad((options) => {
     scheduleId.value = authStore.scheduleId
     console.log('从 Store 获取 scheduleId:', scheduleId.value)
   } else {
-    console.warn('没有 scheduleId，请先在工作台签到')
+    // 开发测试用默认值
+    scheduleId.value = '2971'
+    console.log('使用默认 scheduleId 进行开发测试:', scheduleId.value)
   }
 })
 
@@ -602,7 +637,13 @@ onShow(() => {
     console.log('onShow 从 Store 同步 scheduleId:', scheduleId.value)
   }
   
-  // 只有有 scheduleId 时才请求数据
+  // 如果还是没有，使用默认值（开发测试）
+  if (!scheduleId.value) {
+    scheduleId.value = '2971'
+    console.log('onShow 中使用默认 scheduleId:', scheduleId.value)
+  }
+  
+  // 有 scheduleId 就请求数据
   if (scheduleId.value) {
     console.log('onShow 中准备调用 fetchQueueData')
     fetchQueueData()
@@ -612,23 +653,6 @@ onShow(() => {
         fetchQueueData(true) 
       }, 30000)
     }
-  } else {
-    console.warn('onShow: 没有 scheduleId，无法获取队列数据')
-    // 提示用户先签到
-    uni.showModal({
-      title: '提示',
-      content: '请先在工作台签到后再进入接诊页面',
-      showCancel: true,
-      cancelText: '留在此页',
-      confirmText: '去签到',
-      success: (res) => {
-        if (res.confirm) {
-          uni.switchTab({
-            url: '/pages/workbench/workbench'
-          })
-        }
-      }
-    })
   }
 })
 
@@ -798,11 +822,33 @@ onHide(() => {
     padding: 60rpx 30rpx;
     text-align: center;
     box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+    margin-bottom: 30rpx;
 
     .empty-text {
       font-size: 28rpx;
       color: #999;
       margin-bottom: 20rpx;
+    }
+
+    .empty-actions {
+      margin-top: 30rpx;
+
+      .next-tip {
+        display: block;
+        font-size: 26rpx;
+        color: #666;
+        margin-bottom: 20rpx;
+      }
+
+      .btn-call-next {
+        width: 100%;
+        padding: 20rpx 0;
+        border-radius: 8rpx;
+        background: #13c2c2;
+        color: #fff;
+        border: none;
+        font-size: 30rpx;
+      }
     }
   }
 
@@ -1297,6 +1343,13 @@ onHide(() => {
         &.status-passed {
           opacity: 0.7;
         }
+      }
+
+      .empty-text {
+        text-align: center;
+        color: #999;
+        padding: 40rpx 0;
+        font-size: 26rpx;
       }
     }
   }

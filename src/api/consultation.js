@@ -3,10 +3,15 @@ import {
     mockGetInitialData,
     mockGetPatientDetail,
     mockSearchPatients,
+    mockCallNextPatient,
+    mockPassPatient,
+    mockCompleteConsultation,
+    mockApplyAddPatient,
+    resetMockData
 } from '../pages/consultation/consultation-mock'
 
 // Mock 开关（开发测试用）
-const USE_MOCK = false
+const USE_MOCK = true
 
 /**
  * 获取接诊队列信息
@@ -27,6 +32,9 @@ export function getConsultationQueue(scheduleId) {
  * @param {number|string} scheduleId - 排班ID
  */
 export function callNextPatient(scheduleId) {
+    if (USE_MOCK) {
+        return mockCallNextPatient()
+    }
     return request.post('/doctor/consultation/next', { schedule_id: scheduleId })
 }
 
@@ -35,6 +43,9 @@ export function callNextPatient(scheduleId) {
  * @param {number|string} patientOrderId - 患者排队订单ID
  */
 export function passPatient(patientOrderId) {
+    if (USE_MOCK) {
+        return mockPassPatient(patientOrderId)
+    }
     return request.post('/doctor/consultation/pass', { patient_order_id: patientOrderId })
 }
 
@@ -44,6 +55,9 @@ export function passPatient(patientOrderId) {
  * @param {number|string} scheduleId - 排班ID
  */
 export function completeConsultation(patientId, scheduleId) {
+    if (USE_MOCK) {
+        return mockCompleteConsultation(patientId)
+    }
     return request.post('/doctor/consultation/complete', { patient_id: patientId, schedule_id: scheduleId })
 }
 
@@ -74,6 +88,18 @@ export function searchPatients(params) {
  * @param {object} data - { schedule_id, patient_id, priority, reason }
  */
 export function applyAddPatient(data) {
-    // 注意：mock数据时，此操作在前端完成，真实API调用后端
+    if (USE_MOCK) {
+        return mockApplyAddPatient(data)
+    }
     return request.post('/doctor/consultation/add', data)
+}
+
+/**
+ * 重置 Mock 数据（仅开发测试用）
+ */
+export function resetConsultationMockData() {
+    if (USE_MOCK) {
+        return Promise.resolve({ code: 0, message: '重置成功', data: resetMockData() })
+    }
+    return Promise.reject(new Error('非 Mock 模式'))
 }
