@@ -16,8 +16,9 @@ const getBaseUrl = () => {
     return 'http://localhost:8000'
 }
 
-export const BASE_URL = getBaseUrl()
-const TIMEOUT = 15000 // 超时时间 15s
+const BASE_URL = getBaseUrl()
+const TIMEOUT = 10000 // 超时时间改为 10s（更合理）
+const MAX_RETRY = 2 // 最大重试次数
 
 // 2. 辅助函数：统一处理认证失效
 const handleAuthError = (msg = '认证失效，请重新登录') => {
@@ -37,9 +38,9 @@ const handleAuthError = (msg = '认证失效，请重新登录') => {
 }
 
 /**
- * 3. 核心请求函数
+ * 3. 核心请求函数（带重试机制）
  */
-const request = (options = {}) => {
+const request = (options = {}, retryCount = 0) => {
     // 3.1 url 拼接
     const url = options.url.startsWith('http')
         ? options.url
@@ -104,7 +105,9 @@ const request = (options = {}) => {
                     } else {
                         // 其他业务错误
                         const msg = data.message || '请求失败'
-                        uni.showToast({ title: msg, icon: 'none' })
+                        if (retryCount >= MAX_RETRY) {
+                            uni.showToast({ title: msg, icon: 'none' })
+                        }
                         reject(new Error(msg))
                     }
                 } else {
@@ -114,11 +117,28 @@ const request = (options = {}) => {
             },
             fail: (err) => {
                 console.error('Request Fail:', err)
+
+                // 超时或网络错误时尝试重试
+                if (retryCount < MAX_RETRY && (
+                    err.errMsg?.includes('timeout') ||
+                    err.errMsg?.includes('fail')
+                )) {
+                    console.log(`请求失败，重试 ${retryCount + 1}/${MAX_RETRY}`)
+                    // 延迟后重试（指数退避）
+                    setTimeout(() => {
+                        request(options, retryCount + 1)
+                            .then(resolve)
+                            .catch(reject)
+                    }, 1000 * (retryCount + 1))
+                    return
+                }
+
+                // 最后一次失败才显示提示
                 let errMsg = '网络连接失败'
                 if (err.errMsg && err.errMsg.includes('timeout')) {
-                    errMsg = '请求超时'
+                    errMsg = '请求超时，请检查网络'
                 }
-                uni.showToast({ title: errMsg, icon: 'none' })
+                uni.showToast({ title: errMsg, icon: 'none', duration: 2000 })
                 reject(err)
             }
         })
@@ -175,6 +195,9 @@ export const get = (url, data, options) => request({ ...options, url, data, meth
 export const post = (url, data, options) => request({ ...options, url, data, method: 'POST' })
 export const put = (url, data, options) => request({ ...options, url, data, method: 'PUT' })
 export const del = (url, data, options) => request({ ...options, url, data, method: 'DELETE' })
+
+// 导出 BASE_URL 供其他模块使用
+export { BASE_URL }
 
 // 默认导出
 export default {
